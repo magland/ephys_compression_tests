@@ -33,12 +33,6 @@ jobs:
           cd python
           pip install -e .
 
-      - name: Install simple_ans from source for now
-        run: |
-          git clone https://github.com/flatironinstitute/simple_ans.git
-          cd simple_ans
-          pip install -e .
-
       - name: Run benchmarks
         env:
           MEMOBIN_API_KEY: ${{ secrets.MEMOBIN_API_KEY }}
