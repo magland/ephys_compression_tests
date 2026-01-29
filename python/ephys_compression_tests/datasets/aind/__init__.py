@@ -1,0 +1,77 @@
+import numpy as np
+import os
+import requests
+import io
+from ...types import Dataset
+
+from ..._filters import bandpass_filter
+
+
+SOURCE_FILE = "aind/__init__.py"
+
+
+def _load_long_description():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    md_path = os.path.join(current_dir, "aind.md")
+    with open(md_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+LONG_DESCRIPTION = _load_long_description()
+
+tags = ["real", "ecephys", "timeseries", "1d", "integer", "correlated"]
+
+
+def load_aind_ch101() -> np.ndarray:
+    """Load AIND CH101 dataset from external URL.
+
+    Returns:
+        Array containing the loaded data
+    """
+    url = "https://tempory.net/ephys-compression-tests/aind_CH101.raw.npy"
+    print(f'Loading AIND dataset from {url}...')
+    response = requests.get(url)
+    response.raise_for_status()
+    data = np.load(io.BytesIO(response.content)).flatten()
+    return data
+    
+
+
+dataset_dicts_base = [
+    {
+        "name": "aind-ch101",
+        "version": "1",
+        "description": "AIND CH101 dataset",
+        "create": load_aind_ch101,
+        "tags": tags,
+        "source_file": SOURCE_FILE,
+        "long_description": LONG_DESCRIPTION,
+    }
+]
+
+dataset_dicts = []
+for d in dataset_dicts_base:
+    dataset_dicts.append(d)
+
+# Add filtered versions
+for d in dataset_dicts_base:
+    def create0(d=d) -> np.ndarray:
+        data = d["create"]()
+        filtered = bandpass_filter(data, sampling_frequency=30000, lowcut=300, highcut=4000)
+        filtered = filtered.astype(data.dtype)
+        return filtered
+
+    dataset_dicts.append(
+        {
+            "name": f'{d["name"]}-bandpass',
+            "version": "1",
+            "description": f'{d["description"]} (bandpass filtered 300-4000 Hz)',
+            "create": create0,
+            "tags": d["tags"] + ["filtered", "bandpass"],
+            "source_file": SOURCE_FILE,
+            "long_description": LONG_DESCRIPTION,
+        }
+    )
+
+
+datasets = [Dataset(**a) for a in dataset_dicts]

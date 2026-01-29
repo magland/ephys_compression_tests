@@ -1,0 +1,83 @@
+import numpy as np
+import os
+from ...types import Algorithm
+
+SOURCE_FILE = "wavpack/__init__.py"
+
+
+def _load_long_description():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    md_path = os.path.join(current_dir, "wavpack.md")
+    with open(md_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+LONG_DESCRIPTION = _load_long_description()
+
+
+def wavpack_encode(x: np.ndarray) -> bytes:
+    from wavpack_numcodecs import WavPack
+    codec = WavPack()
+    encoded = codec.encode(x)
+    assert isinstance(encoded, bytes)
+    return encoded
+
+def wavpack_decode(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
+    from wavpack_numcodecs import WavPack
+    codec = WavPack()
+    decoded = codec.decode(x)
+    arr = np.frombuffer(decoded, dtype=np.dtype(dtype))
+    return arr.reshape(shape)
+
+algorithm_dicts_base = [
+    {
+        "name": "wavpack",
+        "version": "1",
+        "encode": lambda x: wavpack_encode(x),
+        "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
+        "description": "WavPack",
+        "tags": ["wavpack"],
+        "source_file": SOURCE_FILE,
+        "long_description": LONG_DESCRIPTION,
+    }
+]
+
+algorithm_dicts = []
+for a in algorithm_dicts_base:
+    algorithm_dicts.append(a)
+
+# add delta encoding
+for a in algorithm_dicts_base:
+    def encode0(x: np.ndarray, a=a) -> bytes:
+        x_diff = np.diff(x)
+        x0 = x[0:1]
+        encoded_diff = a["encode"](x_diff)
+        # Store the first value at the start
+        first_value_bytes = x0.tobytes()
+        return first_value_bytes + encoded_diff
+    def decode0(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
+        dtype_np = np.dtype(dtype)
+        num_bytes_first_value = dtype_np.itemsize
+        first_value_bytes = x[:num_bytes_first_value]
+        x0 = np.frombuffer(first_value_bytes, dtype=dtype_np)
+        encoded_diff = x[num_bytes_first_value:]
+        x_diff = a["decode"](encoded_diff, dtype, (shape[0]-1,))
+        x_reconstructed = np.empty(shape, dtype=dtype_np)
+        x_reconstructed[0] = x0
+        x_reconstructed[1:] = x0 + np.cumsum(x_diff)
+        return x_reconstructed
+    algorithm_dicts.append({
+        "name": a["name"] + "-delta",
+        "version": a["version"],
+        "encode": encode0,
+        "decode": decode0,
+        "description": a["description"] + " with delta encoding",
+        "tags": a["tags"] + ["delta"],
+        "source_file": a["source_file"],
+        "long_description": a["long_description"]
+    })
+
+algorithms = [
+    Algorithm(**a)
+    for a in algorithm_dicts
+]
