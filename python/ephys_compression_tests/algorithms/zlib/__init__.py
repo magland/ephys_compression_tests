@@ -92,25 +92,26 @@ algorithm_dicts = []
 for a in algorithm_dicts_base:
     algorithm_dicts.append(a)
 
-# Add delta encoding
+# add delta encoding
 for a in algorithm_dicts_base:
     def encode0(x: np.ndarray, a=a) -> bytes:
-        x_diff = np.diff(x)
-        x0 = x[0:1]
+        assert x.ndim == 2 and x.shape[0] > 1, "Input array must be 2D with more than one timepoint"
+        x_diff = np.diff(x, axis=0)
+        first_timepoint = x[0:1, :].flatten()
         encoded_diff = a["encode"](x_diff)
         # Store the first value at the start
-        first_value_bytes = x0.tobytes()
-        return first_value_bytes + encoded_diff
+        first_timepoint_bytes = first_timepoint.tobytes()
+        return first_timepoint_bytes + encoded_diff
     def decode0(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
         dtype_np = np.dtype(dtype)
-        num_bytes_first_value = dtype_np.itemsize
-        first_value_bytes = x[:num_bytes_first_value]
-        x0 = np.frombuffer(first_value_bytes, dtype=dtype_np)
-        encoded_diff = x[num_bytes_first_value:]
-        x_diff = a["decode"](encoded_diff, dtype, (shape[0]-1,))
+        num_bytes_first_timepoint = dtype_np.itemsize * shape[1]
+        first_timepoint_bytes = x[:num_bytes_first_timepoint]
+        first_timepoint = np.frombuffer(first_timepoint_bytes, dtype=dtype_np)
+        encoded_diff = x[num_bytes_first_timepoint:]
+        x_diff = a["decode"](encoded_diff, dtype, (shape[0]-1, shape[1]))
         x_reconstructed = np.empty(shape, dtype=dtype_np)
-        x_reconstructed[0] = x0
-        x_reconstructed[1:] = x0 + np.cumsum(x_diff)
+        x_reconstructed[0] = first_timepoint
+        x_reconstructed[1:] = first_timepoint + np.cumsum(x_diff, axis=0)
         return x_reconstructed
     algorithm_dicts.append({
         "name": a["name"] + "-delta",

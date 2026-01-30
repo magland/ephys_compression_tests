@@ -8,23 +8,23 @@ from numba import njit
 def _warmup_numba_functions():
     """Warmup numba JIT compilation with small test data."""
     print("Warming up numba functions for AR model...")
-    # Create small test data
-    test_data = np.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=np.int16)
-    test_coeffs = np.array([0.5, 0.3], dtype=np.float32)
-    test_residuals = np.array([1, 2, 3, 4], dtype=np.int16)
-    test_initial = np.array([1, 2], dtype=np.int16)
+    # Create small test data for 2D arrays (timepoints x channels)
+    test_data = np.array([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9]], dtype=np.int16)
+    test_coeffs = np.array([[0.5, 0.3], [0.4, 0.2]], dtype=np.float32)  # channels x order
+    test_residuals = np.array([[1, 2], [2, 3], [3, 4], [4, 5]], dtype=np.int16)
+    test_initial = np.array([[1, 2], [2, 3]], dtype=np.int16)
     test_step = 2
     
     # Warmup each numba function
-    _create_design_matrix(test_data, 2)
-    _apply_ar_residuals_kernel(test_data, test_coeffs)
-    _apply_ar_residuals_lossy_kernel(test_data, test_coeffs, test_step)
-    _decode_ar_kernel(test_coeffs, test_residuals, test_initial)
+    _create_design_matrix_channel(test_data[:, 0], 2)
+    _apply_ar_residuals_kernel_channel(test_data[:, 0], test_coeffs[0])
+    _apply_ar_residuals_lossy_kernel_channel(test_data[:, 0], test_coeffs[0], test_step)
+    _decode_ar_kernel_channel(test_coeffs[0], test_residuals[:, 0], test_initial[:, 0])
 
 
 @njit
-def _create_design_matrix(data: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray]:
-    """Numba-optimized design matrix creation for AR model."""
+def _create_design_matrix_channel(data: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Numba-optimized design matrix creation for AR model (single channel)."""
     n = len(data)
     X_design = np.zeros((n - order, order))
     y_target = data[order:]
@@ -41,31 +41,35 @@ def fit_ar_model(data: np.ndarray, order: int) -> np.ndarray:
     Fit an autoregressive model of given order using least squares.
     
     Args:
-        data: Input data array
+        data: Input data array (timepoints x channels)
         order: AR model order
         
     Returns:
-        AR coefficients as numpy array
+        AR coefficients as numpy array (channels x order)
     """
-    n = len(data)
-    if order >= n:
-        raise ValueError(f"AR order {order} must be less than data length {n}")
+    n_timepoints, n_channels = data.shape
+    if order >= n_timepoints:
+        raise ValueError(f"AR order {order} must be less than data length {n_timepoints}")
     
-    # Create design matrix using numba-optimized function
-    X_design, y_target = _create_design_matrix(data, order)
+    # Fit AR model for each channel separately
+    coeffs = np.zeros((n_channels, order), dtype=np.float32)
     
-    # Use faster solve via normal equations: (X^T X) coeffs = X^T y
-    # This is faster than lstsq for overdetermined systems
-    XtX = X_design.T @ X_design
-    Xty = X_design.T @ y_target
-    coeffs = np.linalg.solve(XtX, Xty)
+    for ch in range(n_channels):
+        # Create design matrix using numba-optimized function
+        X_design, y_target = _create_design_matrix_channel(data[:, ch], order)
+        
+        # Use faster solve via normal equations: (X^T X) coeffs = X^T y
+        # This is faster than lstsq for overdetermined systems
+        XtX = X_design.T @ X_design
+        Xty = X_design.T @ y_target
+        coeffs[ch] = np.linalg.solve(XtX, Xty)
     
     return coeffs
 
 
 @njit
-def _apply_ar_residuals_kernel(data: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
-    """Numba-optimized kernel for computing AR residuals."""
+def _apply_ar_residuals_kernel_channel(data: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
+    """Numba-optimized kernel for computing AR residuals (single channel)."""
     order = len(coeffs)
     n = len(data)
     residuals = np.empty(n - order, dtype=data.dtype)
@@ -84,9 +88,10 @@ def _apply_ar_residuals_kernel(data: np.ndarray, coeffs: np.ndarray) -> np.ndarr
     
     return residuals
 
+
 @njit
-def _apply_ar_residuals_lossy_kernel(data: np.ndarray, coeffs: np.ndarray, step: int) -> np.ndarray:
-    """Numba-optimized kernel for computing AR residuals with lossy quantization."""
+def _apply_ar_residuals_lossy_kernel_channel(data: np.ndarray, coeffs: np.ndarray, step: int) -> np.ndarray:
+    """Numba-optimized kernel for computing AR residuals with lossy quantization (single channel)."""
     order = len(coeffs)
     n = len(data)
     residuals = np.empty(n - order, dtype=data.dtype)
@@ -126,21 +131,47 @@ def apply_ar_residuals(data: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
     Apply AR model with given coefficients and return residuals.
     
     Args:
-        data: Input data array
-        coeffs: AR coefficients
+        data: Input data array (timepoints x channels)
+        coeffs: AR coefficients (channels x order)
         
     Returns:
-        Residuals array
+        Residuals array (timepoints x channels)
     """
     # Ensure coeffs is float32
     coeffs = np.array(coeffs, dtype=np.float32)
     
-    return _apply_ar_residuals_kernel(data, coeffs)
+    n_timepoints, n_channels = data.shape
+    order = coeffs.shape[1]
+    residuals = np.zeros((n_timepoints - order, n_channels), dtype=data.dtype)
+    
+    for ch in range(n_channels):
+        residuals[:, ch] = _apply_ar_residuals_kernel_channel(data[:, ch], coeffs[ch])
+    
+    return residuals
 
 
 def apply_ar_residuals_lossy(data: np.ndarray, coeffs: np.ndarray, step: int) -> np.ndarray:
+    """
+    Apply AR model with given coefficients and return lossy residuals.
+    
+    Args:
+        data: Input data array (timepoints x channels)
+        coeffs: AR coefficients (channels x order)
+        step: Quantization step size
+        
+    Returns:
+        Residuals array (timepoints x channels)
+    """
     coeffs = np.array(coeffs, dtype=np.float32)
-    return _apply_ar_residuals_lossy_kernel(data, coeffs, step)
+    
+    n_timepoints, n_channels = data.shape
+    order = coeffs.shape[1]
+    residuals = np.zeros((n_timepoints - order, n_channels), dtype=data.dtype)
+    
+    for ch in range(n_channels):
+        residuals[:, ch] = _apply_ar_residuals_lossy_kernel_channel(data[:, ch], coeffs[ch], step)
+    
+    return residuals
 
 
 def encode_ar(data: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -148,11 +179,14 @@ def encode_ar(data: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray, np.
     Encode data using AR model - returns coefficients, residuals, and initial values.
     
     Args:
-        data: Input data array (int16)
+        data: Input data array (timepoints x channels, int16)
         order: AR model order
         
     Returns:
         Tuple of (coefficients, residuals, initial_values)
+        - coefficients: channels x order (float32)
+        - residuals: (timepoints - order) x channels (int16)
+        - initial_values: order x channels (int16)
     """
     # Fit AR model
     coeffs = fit_ar_model(data, order)
@@ -164,11 +198,26 @@ def encode_ar(data: np.ndarray, order: int) -> Tuple[np.ndarray, np.ndarray, np.
     residuals = apply_ar_residuals(data, coeffs)
     
     # Store initial values
-    initial_values = data[:order]
+    initial_values = data[:order, :]
     
     return coeffs, residuals, initial_values
 
+
 def encode_ar_lossy(data: np.ndarray, order: int, step: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Encode data using AR model with lossy quantization.
+    
+    Args:
+        data: Input data array (timepoints x channels, int16)
+        order: AR model order
+        step: Quantization step size
+        
+    Returns:
+        Tuple of (coefficients, residuals, initial_values)
+        - coefficients: channels x order (float32)
+        - residuals: (timepoints - order) x channels (int16)
+        - initial_values: order x channels (int16)
+    """
     # Fit AR model
     coeffs = fit_ar_model(data, order)
     
@@ -179,14 +228,14 @@ def encode_ar_lossy(data: np.ndarray, order: int, step: int) -> Tuple[np.ndarray
     residuals = apply_ar_residuals_lossy(data, coeffs, step=step)
     
     # Store initial values
-    initial_values = data[:order]
+    initial_values = data[:order, :]
     
     return coeffs, residuals, initial_values
 
 
 @njit
-def _decode_ar_kernel(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndarray) -> np.ndarray:
-    """Numba-optimized kernel for AR decoding."""
+def _decode_ar_kernel_channel(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndarray) -> np.ndarray:
+    """Numba-optimized kernel for AR decoding (single channel)."""
     order = len(coeffs)
     n = len(residuals) + order
     reconstructed = np.empty(n, dtype=np.int16)
@@ -213,19 +262,28 @@ def decode_ar(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndar
     Decode AR encoded data.
     
     Args:
-        coeffs: AR coefficients (float32)
-        residuals: Residuals array
-        initial_values: Initial values (first 'order' samples)
+        coeffs: AR coefficients (channels x order, float32)
+        residuals: Residuals array ((timepoints - order) x channels)
+        initial_values: Initial values (order x channels)
         
     Returns:
-        Reconstructed data array
+        Reconstructed data array (timepoints x channels)
     """
     # Ensure coeffs is float32
     coeffs = np.array(coeffs, dtype=np.float32)
     
-    return _decode_ar_kernel(coeffs, residuals, initial_values)
+    n_channels = coeffs.shape[0]
+    order = coeffs.shape[1]
+    n_residuals = residuals.shape[0]
+    n_timepoints = n_residuals + order
+    
+    reconstructed = np.zeros((n_timepoints, n_channels), dtype=np.int16)
+    
+    for ch in range(n_channels):
+        reconstructed[:, ch] = _decode_ar_kernel_channel(coeffs[ch], residuals[:, ch], initial_values[:, ch])
+    
+    return reconstructed
 
 
 # Warmup numba functions on module import
 _warmup_numba_functions()
-

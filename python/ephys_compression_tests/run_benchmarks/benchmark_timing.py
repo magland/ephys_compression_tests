@@ -63,6 +63,8 @@ def run_compression_benchmark(
         - result: Dictionary with benchmark metrics
         - encoded: Compressed data bytes
     """
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
     original_size = len(data.tobytes())
     dtype = str(data.dtype)
 

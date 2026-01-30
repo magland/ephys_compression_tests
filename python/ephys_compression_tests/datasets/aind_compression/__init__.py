@@ -19,7 +19,7 @@ def _load_long_description():
 
 LONG_DESCRIPTION = _load_long_description()
 
-tags = ["real", "ecephys", "timeseries", "1d", "integer", "correlated"]
+tags = ["real", "ecephys", "timeseries", "integer", "correlated"]
 
 
 def load_aind_ch101() -> np.ndarray:
@@ -34,8 +34,14 @@ def load_aind_ch101() -> np.ndarray:
     response.raise_for_status()
     data = np.load(io.BytesIO(response.content)).flatten()
     return data
-    
 
+def load_aind_ch101_110() -> np.ndarray:
+    url = "https://tempory.net/ephys-compression-tests/aind/aind_compression_np2_probeB_ch101-110.raw.npy"
+    print(f'Loading AIND dataset from {url}...')
+    response = requests.get(url)
+    response.raise_for_status()
+    data = np.load(io.BytesIO(response.content))
+    return data
 
 dataset_dicts_base = [
     {
@@ -43,7 +49,16 @@ dataset_dicts_base = [
         "version": "1",
         "description": "AIND CH101 dataset",
         "create": load_aind_ch101,
-        "tags": tags,
+        "tags": tags + ["single-channel"],
+        "source_file": SOURCE_FILE,
+        "long_description": LONG_DESCRIPTION,
+    },
+    {
+        "name": "aind-compression-np2-ProbeB-ch101-110",
+        "version": "1",
+        "description": "AIND CH101-110 dataset",
+        "create": load_aind_ch101_110,
+        "tags": tags + ["multi-channel"],
         "source_file": SOURCE_FILE,
         "long_description": LONG_DESCRIPTION,
     }
