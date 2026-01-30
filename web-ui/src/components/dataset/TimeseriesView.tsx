@@ -125,6 +125,11 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
       return;
     }
 
+    // When a reconstruction is selected for comparison, switch from "all" to channel 0
+    if (selectedChannel === "all") {
+      setSelectedChannel(0);
+    }
+
     const initClient = async () => {
       try {
         const client = await TimeseriesDataClient.create(
@@ -140,7 +145,7 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     };
 
     initClient();
-  }, [reconstructedInfo]);
+  }, [reconstructedInfo, selectedChannel]);
 
   // Load reconstructed data for current range
   useEffect(() => {
