@@ -28,6 +28,7 @@ def _retry_with_backoff(
         try:
             return func(*args, **kwargs)
         except Exception as e:
+            print(f"  Attempt {attempt + 1} failed with error: {str(e)}")
             last_exception = e
             if attempt < num_retries - 1:
                 sleep_time = 2**attempt  # 1, 2, 4, 8 seconds
@@ -57,7 +58,7 @@ def create_signed_upload_url(
     """
 
     def _create_url() -> str:
-        prefix = "https://tempory.net/f/memobin/ephys_compression_tests/"
+        prefix = "https://tempory.net/f/memobin/"
         if not url.startswith(prefix):
             raise ValueError("Invalid url. Does not have proper prefix")
 
@@ -86,7 +87,7 @@ def create_signed_upload_url(
         download_url = result["downloadUrl"]
 
         if download_url != url:
-            raise ValueError("Mismatch between download url and url")
+            raise ValueError(f"Mismatch between download url and url: {download_url} != {url}")
 
         return upload_url
 
