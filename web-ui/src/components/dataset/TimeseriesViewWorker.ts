@@ -66,6 +66,9 @@ function renderTimeseries(
   timeseriesT: number[],
   timeseriesY: number[],
   timeseriesYAll: number[][] | undefined,
+  timeseriesYReconstructed: number[] | undefined,
+  timeseriesYResiduals: number[] | undefined,
+  comparisonMode: string | undefined,
   width: number,
   height: number,
   margins: Margins,
@@ -108,8 +111,95 @@ function renderTimeseries(
   const xScale = drawingWidth / (xRange.max - xRange.min);
   const yScale = drawingHeight / (yRange.max - yRange.min);
 
-  // Draw timeseries - either all channels or single channel
-  if (timeseriesYAll && timeseriesYAll.length > 0) {
+  // Draw timeseries based on comparison mode
+  const mode = comparisonMode || "original";
+  
+  if (mode === "side-by-side" && timeseriesYReconstructed) {
+    // Split canvas vertically
+    const halfWidth = drawingWidth / 2;
+    
+    // Draw original on left
+    context.strokeStyle = "#2196f3";
+    context.lineWidth = 2;
+    context.beginPath();
+    for (let i = 0; i < timeseriesT.length; i++) {
+      const x = margins.left + ((timeseriesT[i] - xRange.min) * halfWidth) / (xRange.max - xRange.min);
+      const y = margins.top + drawingHeight - (timeseriesY[i] - yRange.min) * yScale;
+      if (i === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+    
+    // Draw reconstructed on right
+    context.strokeStyle = "#ff9800"; // orange
+    context.lineWidth = 2;
+    context.beginPath();
+    for (let i = 0; i < timeseriesT.length; i++) {
+      const x = margins.left + halfWidth + ((timeseriesT[i] - xRange.min) * halfWidth) / (xRange.max - xRange.min);
+      const y = margins.top + drawingHeight - (timeseriesYReconstructed[i] - yRange.min) * yScale;
+      if (i === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+    
+    // Draw divider line
+    context.strokeStyle = "#999";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(margins.left + halfWidth, margins.top);
+    context.lineTo(margins.left + halfWidth, height - margins.bottom);
+    context.stroke();
+  } else if (mode === "overlay" && timeseriesYReconstructed) {
+    // Draw original in blue
+    context.strokeStyle = "#2196f3";
+    context.lineWidth = 2;
+    context.beginPath();
+    for (let i = 0; i < timeseriesT.length; i++) {
+      const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
+      const y = margins.top + drawingHeight - (timeseriesY[i] - yRange.min) * yScale;
+      if (i === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+    
+    // Draw reconstructed in orange
+    context.strokeStyle = "#ff9800";
+    context.lineWidth = 2;
+    context.beginPath();
+    for (let i = 0; i < timeseriesT.length; i++) {
+      const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
+      const y = margins.top + drawingHeight - (timeseriesYReconstructed[i] - yRange.min) * yScale;
+      if (i === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+  } else if (mode === "residuals" && timeseriesYResiduals) {
+    // Draw residuals with diverging colors
+    context.lineWidth = 2;
+    context.beginPath();
+    
+    // Draw zero line
+    const zeroY = margins.top + drawingHeight - (0 - yRange.min) * yScale;
+    context.strokeStyle = "#999";
+    context.lineWidth = 1;
+    context.setLineDash([4, 4]);
+    context.moveTo(margins.left, zeroY);
+    context.lineTo(width - margins.right, zeroY);
+    context.stroke();
+    context.setLineDash([]);
+    
+    // Draw residuals
+    context.strokeStyle = "#9c27b0"; // purple for residuals
+    context.lineWidth = 2;
+    context.beginPath();
+    for (let i = 0; i < timeseriesT.length; i++) {
+      const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
+      const y = margins.top + drawingHeight - (timeseriesYResiduals[i] - yRange.min) * yScale;
+      if (i === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+  } else if (timeseriesYAll && timeseriesYAll.length > 0) {
     // Draw all channels with different colors
     const colors = [
       "#2196f3", // blue
@@ -127,39 +217,26 @@ function renderTimeseries(
       context.lineWidth = 1.5;
       context.beginPath();
       
-      let isFirst = true;
       for (let i = 0; i < timeseriesT.length; i++) {
         const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
         const y = margins.top + drawingHeight - (channelY[i] - yRange.min) * yScale;
-        if (isFirst) {
-          context.moveTo(x, y);
-          isFirst = false;
-        } else {
-          context.lineTo(x, y);
-        }
+        if (i === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
       }
       context.stroke();
     });
   } else {
-    // Draw single channel
+    // Draw single channel - original only
     context.strokeStyle = "#2196f3";
     context.lineWidth = 2;
     context.beginPath();
 
-    // Draw the path
-    let isFirst = true;
     for (let i = 0; i < timeseriesT.length; i++) {
       const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
-      const y =
-        margins.top + drawingHeight - (timeseriesY[i] - yRange.min) * yScale;
-      if (isFirst) {
-        context.moveTo(x, y);
-        isFirst = false;
-      } else {
-        context.lineTo(x, y);
-      }
+      const y = margins.top + drawingHeight - (timeseriesY[i] - yRange.min) * yScale;
+      if (i === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
     }
-
     context.stroke();
   }
 
@@ -232,6 +309,9 @@ self.onmessage = (evt: MessageEvent) => {
         timeseriesT,
         timeseriesY,
         timeseriesYAll,
+        timeseriesYReconstructed,
+        timeseriesYResiduals,
+        comparisonMode,
         width,
         height,
         margins,
@@ -242,6 +322,9 @@ self.onmessage = (evt: MessageEvent) => {
         timeseriesT,
         timeseriesY,
         timeseriesYAll,
+        timeseriesYReconstructed,
+        timeseriesYResiduals,
+        comparisonMode,
         width,
         height,
         margins,

@@ -116,6 +116,65 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     loadRangeData();
   }, [client, xRange, selectedChannel, numChannels]);
 
+  // Initialize reconstructed data client when reconstructedInfo changes
+  useEffect(() => {
+    if (!reconstructedInfo) {
+      setReconstructedClient(null);
+      setDataYReconstructed(null);
+      setDataYResiduals(null);
+      return;
+    }
+
+    const initClient = async () => {
+      try {
+        const client = await TimeseriesDataClient.create(
+          reconstructedInfo.datasetJsonUrl,
+          reconstructedInfo.reconstructedUrl,
+          1000
+        );
+        setReconstructedClient(client);
+      } catch (err) {
+        console.error("Failed to initialize reconstructed data client:", err);
+        setError("Failed to load reconstructed data");
+      }
+    };
+
+    initClient();
+  }, [reconstructedInfo]);
+
+  // Load reconstructed data for current range
+  useEffect(() => {
+    if (!reconstructedClient || !xRange || selectedChannel === "all" || comparisonMode === "original") {
+      setDataYReconstructed(null);
+      setDataYResiduals(null);
+      return;
+    }
+
+    const loadReconstructedData = async () => {
+      try {
+        const start = Math.floor(xRange.min);
+        const end = Math.ceil(xRange.max) + 1;
+        const channel = typeof selectedChannel === "number" ? selectedChannel : 0;
+        
+        const reconstructedData = await reconstructedClient.fetchRange(start, end, channel);
+        setDataYReconstructed(reconstructedData);
+
+        // Compute residuals if we have both original and reconstructed
+        if (dataY && reconstructedData.length === dataY.length) {
+          const residuals = new Float32Array(dataY.length);
+          for (let i = 0; i < dataY.length; i++) {
+            residuals[i] = dataY[i] - reconstructedData[i];
+          }
+          setDataYResiduals(residuals);
+        }
+      } catch (err) {
+        console.error("Failed to load reconstructed data:", err);
+      }
+    };
+
+    loadReconstructedData();
+  }, [reconstructedClient, xRange, selectedChannel, dataY, comparisonMode]);
+
   // Update xRange when client is initialized
   useEffect(() => {
     if (client) {
@@ -285,6 +344,9 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
       timeseriesT: dataT,
       timeseriesY: dataY ? Array.from(dataY) : [],
       timeseriesYAll: dataYAll ? dataYAll.map(ch => Array.from(ch)) : undefined,
+      timeseriesYReconstructed: dataYReconstructed ? Array.from(dataYReconstructed) : undefined,
+      timeseriesYResiduals: dataYResiduals ? Array.from(dataYResiduals) : undefined,
+      comparisonMode: comparisonMode,
       width,
       height,
       margins,
@@ -292,7 +354,7 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
       yRange,
     };
     worker.postMessage(msg);
-  }, [width, height, dataT, dataY, dataYAll, worker, margins, xRange, yRange]);
+  }, [width, height, dataT, dataY, dataYAll, dataYReconstructed, dataYResiduals, comparisonMode, worker, margins, xRange, yRange]);
 
   // Render cursor on overlay canvas
   useEffect(() => {
