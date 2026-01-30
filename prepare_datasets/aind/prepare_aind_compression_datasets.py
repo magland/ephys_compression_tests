@@ -7,7 +7,8 @@ s3_base_url = "s3://aind-benchmark-data/ephys-compression"
 
 folder_names = [
     # ("aind-np2/612962_2022-04-13_19-18-04_ProbeB", "aind-np2-probeB", "CH"),
-    ("aind-np1/625749_2022-08-03_15-15-06_ProbeA", "aind-np1-probeA", "AP")
+    # ("aind-np1/625749_2022-08-03_15-15-06_ProbeA", "aind-np1-probeA", "AP")
+    ("ibl-np1/CSHZAD026_2020-09-04_probe00", "ibl-np1-probe00", "AP"),
 ]
 
 for folder_name, name0, channel_prefix in folder_names:
