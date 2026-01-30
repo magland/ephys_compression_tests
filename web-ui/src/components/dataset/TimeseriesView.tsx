@@ -20,8 +20,11 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
   const { client, error: clientError } = useTimeseriesDataClient(dataset);
   const [dataT, setDataT] = useState<number[] | null>(null);
   const [dataY, setDataY] = useState<SupportedTypedArray | null>(null);
+  const [dataYAll, setDataYAll] = useState<SupportedTypedArray[] | null>(null);
   const [error, setError] = useState<string | null>(clientError);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<number | "all">(0);
+  const [numChannels, setNumChannels] = useState<number>(1);
 
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(
     null,
@@ -66,10 +69,25 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
         setIsLoading(true);
         const start = Math.floor(xRange.min);
         const end = Math.ceil(xRange.max) + 1;
-        const rangeData = await client.fetchRange(start, end);
-        setDataY(rangeData);
+        
+        if (selectedChannel === "all") {
+          // Load all channels
+          const allChannelData = await Promise.all(
+            Array.from({ length: numChannels }, (_, ch) =>
+              client.fetchRange(start, end, ch)
+            )
+          );
+          setDataYAll(allChannelData);
+          setDataY(null);
+        } else {
+          // Load single channel
+          const rangeData = await client.fetchRange(start, end, selectedChannel);
+          setDataY(rangeData);
+          setDataYAll(null);
+        }
+        
         const dT = Array.from(
-          { length: rangeData.length },
+          { length: end - start },
           (_, i) => i + start,
         );
         setDataT(dT);
@@ -84,12 +102,16 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     };
 
     loadRangeData();
-  }, [client, xRange]);
+  }, [client, xRange, selectedChannel, numChannels]);
 
   // Update xRange when client is initialized
   useEffect(() => {
     if (client) {
       const shape = client.getShape();
+      const channels = client.getNumChannels();
+      setNumChannels(channels);
+      // Default to "all" if 20 or fewer channels, otherwise default to channel 0
+      setSelectedChannel(channels > 1 && channels <= 20 ? "all" : 0);
       dispatch({
         type: "SET_X_RANGE",
         range: { min: 0, max: Math.min(999, shape - 1) },
@@ -219,23 +241,37 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
 
   // Calculate yRange from data
   const yRange = useMemo<Range>(() => {
-    if (!dataY) return { min: 0, max: 1 };
-    return {
-      min: computeMin(dataY),
-      max: computeMax(dataY),
-    };
-  }, [dataY]);
+    if (dataYAll) {
+      // Calculate range across all channels
+      let min = Infinity;
+      let max = -Infinity;
+      for (const channelData of dataYAll) {
+        const channelMin = computeMin(channelData);
+        const channelMax = computeMax(channelData);
+        if (channelMin < min) min = channelMin;
+        if (channelMax > max) max = channelMax;
+      }
+      return { min, max };
+    } else if (dataY) {
+      return {
+        min: computeMin(dataY),
+        max: computeMax(dataY),
+      };
+    }
+    return { min: 0, max: 1 };
+  }, [dataY, dataYAll]);
 
   // Handle dimension changes
   useEffect(() => {
     if (!worker) return;
-    if (!dataY) return;
     if (!dataT) return;
+    if (!dataY && !dataYAll) return;
 
     const msg: WorkerMessage = {
       type: "render",
       timeseriesT: dataT,
-      timeseriesY: Array.from(dataY),
+      timeseriesY: dataY ? Array.from(dataY) : [],
+      timeseriesYAll: dataYAll ? dataYAll.map(ch => Array.from(ch)) : undefined,
       width,
       height,
       margins,
@@ -243,11 +279,11 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
       yRange,
     };
     worker.postMessage(msg);
-  }, [width, height, dataT, dataY, worker, margins, xRange, yRange]);
+  }, [width, height, dataT, dataY, dataYAll, worker, margins, xRange, yRange]);
 
   // Render cursor on overlay canvas
   useEffect(() => {
-    if (!overlayCanvasElement || selectedIndex === null || !dataY) return;
+    if (!overlayCanvasElement || selectedIndex === null || (!dataY && !dataYAll)) return;
     const ctx = overlayCanvasElement.getContext("2d");
     if (!ctx) return;
 
@@ -272,18 +308,35 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     margins,
     dataT,
     dataY,
+    dataYAll,
     xRange,
   ]);
 
   const selectedValue = useMemo(() => {
-    if (selectedIndex === -1 || !dataT || !dataY) return null;
-    for (let i = 0; i < dataT.length; i++) {
-      if (dataT[i] === selectedIndex) {
-        return dataY[i];
+    if (selectedIndex === -1 || !dataT) return null;
+    
+    if (dataYAll) {
+      // Return all channel values
+      const values: number[] = [];
+      for (let ch = 0; ch < dataYAll.length; ch++) {
+        for (let i = 0; i < dataT.length; i++) {
+          if (dataT[i] === selectedIndex) {
+            values.push(dataYAll[ch][i]);
+            break;
+          }
+        }
+      }
+      return values.length > 0 ? values : null;
+    } else if (dataY) {
+      // Return single channel value
+      for (let i = 0; i < dataT.length; i++) {
+        if (dataT[i] === selectedIndex) {
+          return dataY[i];
+        }
       }
     }
     return null;
-  }, [selectedIndex, dataT, dataY]);
+  }, [selectedIndex, dataT, dataY, dataYAll]);
 
   if (error || clientError) {
     return <div>Error loading data: {error || clientError}</div>;
@@ -294,7 +347,7 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
   }
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!overlayCanvasElement || !dataY || isDragging) return;
+    if (!overlayCanvasElement || (!dataY && !dataYAll) || isDragging) return;
 
     // Enable wheel zooming on first click
     if (!isWheelEnabled) {
@@ -323,6 +376,36 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
           }
         />
       </div>
+      {numChannels > 1 && (
+        <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+          <label htmlFor="channel-select" style={{ fontSize: "14px", color: "#666" }}>
+            Channel:
+          </label>
+          <select
+            id="channel-select"
+            value={selectedChannel}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedChannel(value === "all" ? "all" : Number(value));
+            }}
+            style={{
+              padding: "4px 8px",
+              fontSize: "14px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
+              backgroundColor: "white",
+              cursor: "pointer",
+            }}
+          >
+            <option value="all">All (overlay)</option>
+            {Array.from({ length: numChannels }, (_, i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {showHint && (
         <div
           style={{
@@ -405,9 +488,12 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
           }}
         />
       </div>
-      {selectedIndex !== -1 && dataY && (
+      {selectedIndex !== -1 && selectedValue && (
         <div style={{ height: 30, padding: "5px 0", color: "#666" }}>
-          Index: {selectedIndex}, Value: {selectedValue?.toFixed(3)}
+          Index: {selectedIndex},{" "}
+          {Array.isArray(selectedValue)
+            ? `Values: [${selectedValue.slice(0, 5).map(v => v.toFixed(3)).join(", ")}${selectedValue.length > 5 ? ", ..." : ""}]`
+            : `Value: ${selectedValue.toFixed(3)}`}
         </div>
       )}
     </div>

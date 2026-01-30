@@ -19,7 +19,7 @@ def _load_long_description():
 
 LONG_DESCRIPTION = _load_long_description()
 
-tags = ["real", "ecephys", "timeseries", "1d", "integer", "correlated"]
+tags = ["real", "ecephys", "timeseries", "single-channel", "integer", "correlated"]
 
 
 def load_retina512_example_ch0_seg2_6() -> np.ndarray:

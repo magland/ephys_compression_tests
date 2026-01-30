@@ -16,6 +16,7 @@ export type WorkerMessage =
       type: "render";
       timeseriesT: number[];
       timeseriesY: number[];
+      timeseriesYAll?: number[][]; // For multi-channel overlay
       width: number;
       height: number;
       margins: Margins;

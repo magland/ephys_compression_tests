@@ -23,6 +23,7 @@ const TypedArrayConstructors = {
 
 export class TimeseriesDataClient {
   private shape: number = 0;
+  private numChannels: number = 1;
   private dtype: DType | null = null;
   private chunkSize: number;
   private cache: ChunkCache = {};
@@ -62,7 +63,15 @@ export class TimeseriesDataClient {
       throw new Error(`Failed to fetch dataset info: ${response.statusText}`);
     }
     const info = await response.json();
-    this.shape = info.shape[0];
+    
+    // Handle multi-dimensional shape: [num_timepoints, num_channels]
+    if (Array.isArray(info.shape)) {
+      this.shape = info.shape[0];
+      this.numChannels = info.shape.length > 1 ? info.shape[1] : 1;
+    } else {
+      this.shape = info.shape;
+      this.numChannels = 1;
+    }
 
     if (!this.isValidDType(info.dtype)) {
       throw new Error(`Unsupported data type: ${info.dtype}`);
@@ -106,8 +115,9 @@ export class TimeseriesDataClient {
       const end = Math.min(start + this.chunkSize, this.shape);
       const url = this.datasetDataUrl;
       const itemSize = TypedArrayConstructors[this.dtype].BYTES_PER_ELEMENT;
-      const byteStart = start * itemSize;
-      const byteEnd = end * itemSize;
+      // Account for multi-channel data: each timepoint has numChannels values
+      const byteStart = start * this.numChannels * itemSize;
+      const byteEnd = end * this.numChannels * itemSize;
 
       try {
         const response = await fetch(url, {
@@ -135,9 +145,13 @@ export class TimeseriesDataClient {
     return fetchPromise;
   }
 
-  async fetchRange(start: number, end: number): Promise<SupportedTypedArray> {
+  async fetchRange(start: number, end: number, channel: number = 0): Promise<SupportedTypedArray> {
     if (!this.dtype) {
       throw new Error("Data type not initialized");
+    }
+
+    if (channel < 0 || channel >= this.numChannels) {
+      throw new Error(`Invalid channel ${channel}. Must be between 0 and ${this.numChannels - 1}`);
     }
 
     const chunkIndices = this.getChunkIndices(start, end);
@@ -156,10 +170,13 @@ export class TimeseriesDataClient {
       const chunk = chunks[i];
       const chunkStart = chunkIndices[i] * this.chunkSize;
       const copyStart = Math.max(0, start - chunkStart);
-      const copyEnd = Math.min(chunk.length, end - chunkStart);
-      const copyLength = copyEnd - copyStart;
-      result.set(chunk.subarray(copyStart, copyEnd), resultOffset);
-      resultOffset += copyLength;
+      const copyEnd = Math.min(chunk.length / this.numChannels, end - chunkStart);
+      
+      // Extract the selected channel from interleaved data
+      for (let t = copyStart; t < copyEnd; t++) {
+        const sourceIdx = t * this.numChannels + channel;
+        result[resultOffset++] = chunk[sourceIdx];
+      }
     }
 
     return result;
@@ -171,5 +188,9 @@ export class TimeseriesDataClient {
 
   getDType(): DType | null {
     return this.dtype;
+  }
+
+  getNumChannels(): number {
+    return this.numChannels;
   }
 }

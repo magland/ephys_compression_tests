@@ -65,6 +65,7 @@ let ctx: OffscreenCanvasRenderingContext2D | null = null;
 function renderTimeseries(
   timeseriesT: number[],
   timeseriesY: number[],
+  timeseriesYAll: number[][] | undefined,
   width: number,
   height: number,
   margins: Margins,
@@ -103,30 +104,64 @@ function renderTimeseries(
   context.rect(margins.left, margins.top, drawingWidth, drawingHeight);
   context.clip();
 
-  // Set up drawing style for timeseries
-  context.strokeStyle = "#2196f3";
-  context.lineWidth = 2;
-  context.beginPath();
-
   // Calculate scaling factors
   const xScale = drawingWidth / (xRange.max - xRange.min);
   const yScale = drawingHeight / (yRange.max - yRange.min);
 
-  // Draw the path
-  let isFirst = true;
-  for (let i = 0; i < timeseriesT.length; i++) {
-    const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
-    const y =
-      margins.top + drawingHeight - (timeseriesY[i] - yRange.min) * yScale;
-    if (isFirst) {
-      context.moveTo(x, y);
-      isFirst = false;
-    } else {
-      context.lineTo(x, y);
-    }
-  }
+  // Draw timeseries - either all channels or single channel
+  if (timeseriesYAll && timeseriesYAll.length > 0) {
+    // Draw all channels with different colors
+    const colors = [
+      "#2196f3", // blue
+      "#f44336", // red
+      "#4caf50", // green
+      "#ff9800", // orange
+      "#9c27b0", // purple
+      "#00bcd4", // cyan
+      "#ffeb3b", // yellow
+      "#795548", // brown
+    ];
+    
+    timeseriesYAll.forEach((channelY, channelIdx) => {
+      context.strokeStyle = colors[channelIdx % colors.length];
+      context.lineWidth = 1.5;
+      context.beginPath();
+      
+      let isFirst = true;
+      for (let i = 0; i < timeseriesT.length; i++) {
+        const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
+        const y = margins.top + drawingHeight - (channelY[i] - yRange.min) * yScale;
+        if (isFirst) {
+          context.moveTo(x, y);
+          isFirst = false;
+        } else {
+          context.lineTo(x, y);
+        }
+      }
+      context.stroke();
+    });
+  } else {
+    // Draw single channel
+    context.strokeStyle = "#2196f3";
+    context.lineWidth = 2;
+    context.beginPath();
 
-  context.stroke();
+    // Draw the path
+    let isFirst = true;
+    for (let i = 0; i < timeseriesT.length; i++) {
+      const x = margins.left + (timeseriesT[i] - xRange.min) * xScale;
+      const y =
+        margins.top + drawingHeight - (timeseriesY[i] - yRange.min) * yScale;
+      if (isFirst) {
+        context.moveTo(x, y);
+        isFirst = false;
+      } else {
+        context.lineTo(x, y);
+      }
+    }
+
+    context.stroke();
+  }
 
   // Remove clipping before drawing ticks
   context.restore();
@@ -196,6 +231,7 @@ self.onmessage = (evt: MessageEvent) => {
       const {
         timeseriesT,
         timeseriesY,
+        timeseriesYAll,
         width,
         height,
         margins,
@@ -205,6 +241,7 @@ self.onmessage = (evt: MessageEvent) => {
       renderTimeseries(
         timeseriesT,
         timeseriesY,
+        timeseriesYAll,
         width,
         height,
         margins,
