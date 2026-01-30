@@ -15,9 +15,12 @@ def _load_long_description():
 LONG_DESCRIPTION = _load_long_description()
 
 
-def wavpack_encode(x: np.ndarray) -> bytes:
+def wavpack_encode(x: np.ndarray, bps: float=None) -> bytes:
     from wavpack_numcodecs import WavPack
-    codec = WavPack()
+    if bps is not None:
+        codec = WavPack(bps=bps)
+    else:
+        codec = WavPack()
     encoded = codec.encode(x)
     assert isinstance(encoded, bytes)
     return encoded
@@ -76,6 +79,28 @@ for a in algorithm_dicts_base:
         "source_file": a["source_file"],
         "long_description": a["long_description"]
     })
+
+# Add lossy version
+algorithm_dicts.append({
+    "name": "wavpack-lossy-3",
+    "version": "1",
+    "encode": lambda x: wavpack_encode(x, bps=3),
+    "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
+    "description": "WavPack lossy with 3 bits per sample",
+    "tags": ["wavpack", "lossy"],
+    "source_file": SOURCE_FILE,
+    "long_description": LONG_DESCRIPTION,
+})
+algorithm_dicts.append({
+    "name": "wavpack-lossy-4",
+    "version": "1",
+    "encode": lambda x: wavpack_encode(x, bps=4),
+    "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
+    "description": "WavPack lossy with 4 bits per sample",
+    "tags": ["wavpack", "lossy"],
+    "source_file": SOURCE_FILE,
+    "long_description": LONG_DESCRIPTION,
+})
 
 algorithms = [
     Algorithm(**a)

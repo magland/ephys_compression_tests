@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from .ar import encode_ar, decode_ar
+from .ar import encode_ar, encode_ar_lossy, decode_ar
 from ...types import Algorithm
 
 SOURCE_FILE = "ans/__init__.py"
@@ -156,14 +156,14 @@ for a in algorithm_dicts_base:
 
 # add delta encoding
 for a in algorithm_dicts_base:
-    def encode0(x: np.ndarray, a=a) -> bytes:
+    def encode0_ar2_lossy(x: np.ndarray, a=a) -> bytes:
         x_diff = np.diff(x)
         x0 = x[0:1]
         encoded_diff = a["encode"](x_diff)
         # Store the first value at the start
         first_value_bytes = x0.tobytes()
         return first_value_bytes + encoded_diff
-    def decode0(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
+    def decode0_ar2_lossy(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
         dtype_np = np.dtype(dtype)
         num_bytes_first_value = dtype_np.itemsize
         first_value_bytes = x[:num_bytes_first_value]
@@ -177,8 +177,8 @@ for a in algorithm_dicts_base:
     algorithm_dicts.append({
         "name": a["name"] + "-delta",
         "version": a["version"],
-        "encode": encode0,
-        "decode": decode0,
+        "encode": encode0_ar2_lossy,
+        "decode": decode0_ar2_lossy,
         "description": a["description"] + " with delta encoding",
         "tags": a["tags"] + ["delta"],
         "source_file": a["source_file"],
@@ -187,7 +187,7 @@ for a in algorithm_dicts_base:
 
 # add delta2 encoding
 for a in algorithm_dicts_base:
-    def encode0(x: np.ndarray, a=a) -> bytes:
+    def encode0_ar2_lossy(x: np.ndarray, a=a) -> bytes:
         x_diff = np.diff(np.diff(x))
         x0 = x[0:1]
         encoded_diff = a["encode"](x_diff)
@@ -195,7 +195,7 @@ for a in algorithm_dicts_base:
         first_value_bytes = x0.tobytes()
         second_value_bytes = x[1:2].tobytes()
         return first_value_bytes + second_value_bytes + encoded_diff
-    def decode0(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
+    def decode0_ar2_lossy(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
         dtype_np = np.dtype(dtype)
         num_bytes_first_value = dtype_np.itemsize
         first_value_bytes = x[:num_bytes_first_value]
@@ -214,8 +214,8 @@ for a in algorithm_dicts_base:
     algorithm_dicts.append({
         "name": a["name"] + "-delta2",
         "version": a["version"],
-        "encode": encode0,
-        "decode": decode0,
+        "encode": encode0_ar2_lossy,
+        "decode": decode0_ar2_lossy,
         "description": a["description"] + " with delta2 encoding",
         "tags": a["tags"] + ["delta2"],
         "source_file": a["source_file"],
@@ -225,13 +225,13 @@ for a in algorithm_dicts_base:
 # Add auto-regressive prediction encoding
 for a in algorithm_dicts_base:
     for order in [2, 8]:
-        def encode0(x: np.ndarray, a=a, order=order) -> bytes:
+        def encode0_ar2_lossy(x: np.ndarray, a=a, order=order) -> bytes:
             coeffs, residuals, initial_values = encode_ar(x, order=order)
             encoded_residuals = a["encode"](residuals)
             coeffs_bytes = coeffs.astype(np.float32).tobytes()
             initial_values_bytes = initial_values.astype(np.int16).tobytes()
             return coeffs_bytes + initial_values_bytes + encoded_residuals
-        def decode0(x: bytes, dtype: str, shape: tuple, a=a, order=order) -> np.ndarray:
+        def decode0_ar2_lossy(x: bytes, dtype: str, shape: tuple, a=a, order=order) -> np.ndarray:
             dtype_np = np.dtype(dtype)
             num_bytes_coeffs = order * np.dtype(np.float32).itemsize
             coeffs_bytes = x[:num_bytes_coeffs]
@@ -247,13 +247,44 @@ for a in algorithm_dicts_base:
         algorithm_dicts.append({
             "name": a["name"] + f"-ar{order}",
             "version": a["version"],
-            "encode": encode0,
-            "decode": decode0,
+            "encode": encode0_ar2_lossy,
+            "decode": decode0_ar2_lossy,
             "description": a["description"] + f" with auto-regressive prediction encoding of order {order}",
             "tags": a["tags"] + [f"ar{order}"],
             "source_file": a["source_file"],
             "long_description": a["long_description"]
         })
+
+# Add lossy ar2
+def encode0_ar2_lossy(x: np.ndarray) -> bytes:
+    coeffs, residuals, initial_values = encode_ar_lossy(x, order=2, step=2 * 2 + 1)
+    encoded_residuals = ans_encode_0(residuals)
+    coeffs_bytes = coeffs.astype(np.float32).tobytes()
+    initial_values_bytes = initial_values.astype(np.int16).tobytes()
+    return coeffs_bytes + initial_values_bytes + encoded_residuals
+def decode0_ar2_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
+    dtype_np = np.dtype(dtype)
+    num_bytes_coeffs = 2 * np.dtype(np.float32).itemsize
+    coeffs_bytes = x[:num_bytes_coeffs]
+    coeffs = np.frombuffer(coeffs_bytes, dtype=np.float32)
+    num_initial_values = len(coeffs)
+    num_bytes_initial_values = num_initial_values * dtype_np.itemsize
+    initial_values_bytes = x[num_bytes_coeffs : num_bytes_coeffs + num_bytes_initial_values]
+    initial_values = np.frombuffer(initial_values_bytes, dtype=dtype_np)
+    encoded_residuals = x[num_bytes_coeffs + num_bytes_initial_values :]
+    residuals = ans_decode_0(encoded_residuals, dtype, (shape[0]-num_initial_values,))
+    reconstructed = decode_ar(coeffs, residuals, initial_values)
+    return reconstructed.reshape(shape)
+algorithm_dicts.append({
+    "name": "ans-ar2-lossy-2",
+    "version": "1",
+    "encode": encode0_ar2_lossy,
+    "decode": decode0_ar2_lossy,
+    "description": "ANS with lossy auto-regressive prediction encoding of order 2",
+    "tags": ["ans", "lossy", "ar2"],
+    "source_file": SOURCE_FILE,
+    "long_description": LONG_DESCRIPTION
+})
 
 algorithms = [
     Algorithm(**a)

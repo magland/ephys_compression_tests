@@ -47,6 +47,7 @@ def run_compression_benchmark(
     encode_fn: Callable,
     decode_fn: Callable,
     verbose: bool = True,
+    lossy: bool = False,
 ) -> Tuple[Dict[str, Any], bytes]:
     """Run compression and decompression benchmarks for an algorithm.
 
@@ -93,14 +94,22 @@ def run_compression_benchmark(
             f"Decompression failed: decoded length {len(decoded)} != original length {len(data)}"
         )
 
-    if not np.array_equal(data, decoded):
-        print(data[:100])
-        print(decoded[:100])
-        for j in range(len(data)):
-            if data[j] != decoded[j]:
-                print(f"Error at index {j}: {data[j]} != {decoded[j]}")
-                break
-        raise ValueError(f"Decompression verification failed for {algorithm_name}")
+    if not lossy:
+        if not np.array_equal(data, decoded):
+            print(data[:100])
+            print(decoded[:100])
+            for j in range(len(data)):
+                if data[j] != decoded[j]:
+                    print(f"Error at index {j}: {data[j]} != {decoded[j]}")
+                    break
+            raise ValueError(f"Decompression verification failed for {algorithm_name}")
+        rmse = 0.0
+        max_error = 0.0
+    else:
+        # compute RMSE and max error
+        rmse = float(np.sqrt(np.mean((data - decoded) ** 2)))
+        max_error = float(np.max(np.abs(data - decoded)))
+        print(f"    RMSE: {rmse:.4f}, Max error: {max_error:.4f}")
 
     if verbose:
         print("  Verification successful!")
@@ -117,6 +126,8 @@ def run_compression_benchmark(
         "array_dtype": dtype,
         "timestamp": time.time(),
         "cache_status": "new",
+        "rmse": rmse,
+        "max_error": max_error,
     }
 
     return result, encoded

@@ -151,12 +151,14 @@ def run_benchmarks(
                     print(f"  Warning: Failed to upload dataset to memobin: {str(e)}")
 
             # Run the benchmark
+            lossy = "lossy" in alg_tags
             result, encoded = run_compression_benchmark(
                 data,
                 alg_name,
                 algorithm.encode,
                 algorithm.decode,
                 verbose,
+                lossy=lossy
             )
 
             # Add metadata to result

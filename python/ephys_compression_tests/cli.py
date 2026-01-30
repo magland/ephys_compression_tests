@@ -133,6 +133,11 @@ def run(algorithm, dataset, cache_dir, quiet, force):
             f"\n  Encode speed: {result['encode_mb_per_sec']:.2f} MB/s"
             f"\n  Decode speed: {result['decode_mb_per_sec']:.2f} MB/s"
         )
+        if result["rmse"] != 0.0 or result["max_error"] != 0.0:
+            click.echo(
+                f"  RMSE: {result['rmse']:.4f}"
+                f"\n  Max error: {result['max_error']:.4f}"
+            )
 
 
 def main():
