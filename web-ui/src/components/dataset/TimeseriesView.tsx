@@ -33,7 +33,10 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     useState<HTMLCanvasElement | null>(null);
   const [state, dispatch] = useReducer(timeseriesViewReducer, initialState);
   const { selectedIndex, isDragging, lastDragX, xRange } = state;
-  const [isWheelEnabled, setIsWheelEnabled] = useState(false);
+  // Wheel zooming is disabled because it causes the page to scroll when the user
+  // tries to scroll the timeseries view, creating a poor user experience.
+  // Instead, we provide explicit zoom control buttons.
+  const [isWheelEnabled] = useState(false); // Keep state for potential future use, but always false
   const [showHint, setShowHint] = useState(true);
 
   // Hide hint when user interacts with the graph
@@ -128,6 +131,7 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
         return; // Allow page scrolling if wheel zoom not enabled
       }
       e.preventDefault();
+      e.stopPropagation();
 
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -158,7 +162,7 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     return () => {
       container.removeEventListener("wheel", handleWheel);
     };
-  }, [container, client, width, margins, xRange, isWheelEnabled]);
+  }, [container, client, width, margins, isWheelEnabled]);
 
   // Set up mouse event listeners for panning
   useEffect(() => {
@@ -349,11 +353,6 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!overlayCanvasElement || (!dataY && !dataYAll) || isDragging) return;
 
-    // Enable wheel zooming on first click
-    if (!isWheelEnabled) {
-      setIsWheelEnabled(true);
-    }
-
     const rect = overlayCanvasElement.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const xRatio = (x - margins.left) / (width - margins.left - margins.right);
@@ -361,6 +360,39 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
     if (index >= 0) {
       dispatch({ type: "SET_SELECTED_INDEX", index });
     }
+  };
+
+  // Zoom control functions - zoom centered on the selected index (current timepoint)
+  const handleZoomIn = () => {
+    if (!client) return;
+    // Use selectedIndex as center if set, otherwise use view center
+    const center = selectedIndex !== -1 ? selectedIndex : (xRange.min + xRange.max) / 2;
+    const currentRange = xRange.max - xRange.min;
+    const newRange = currentRange / 1.5; // Zoom in by 1.5x
+    const newMin = Math.max(0, center - newRange / 2);
+    const newMax = Math.min(client.getShape() - 1, center + newRange / 2);
+    dispatch({ type: "SET_X_RANGE", range: { min: newMin, max: newMax } });
+  };
+
+  const handleZoomOut = () => {
+    if (!client) return;
+    // Use selectedIndex as center if set, otherwise use view center
+    const center = selectedIndex !== -1 ? selectedIndex : (xRange.min + xRange.max) / 2;
+    const currentRange = xRange.max - xRange.min;
+    const newRange = currentRange * 1.5; // Zoom out by 1.5x
+    const shape = client.getShape();
+    const newMin = Math.max(0, center - newRange / 2);
+    const newMax = Math.min(shape - 1, center + newRange / 2);
+    dispatch({ type: "SET_X_RANGE", range: { min: newMin, max: newMax } });
+  };
+
+  const handleZoomReset = () => {
+    if (!client) return;
+    const shape = client.getShape();
+    dispatch({
+      type: "SET_X_RANGE",
+      range: { min: 0, max: Math.min(999, shape - 1) },
+    });
   };
 
   return (
@@ -439,23 +471,91 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
               <path d="M15 3h2v5h-2V3zm4 0h2v5h-2V3zm-4 7h2v5h-2v-5zm4 0h2v5h-2v-5zm-4 7h2v5h-2v-5zm4 0h2v5h-2v-5z" />
             </svg>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              backgroundColor: "rgba(255, 255, 255, 0.9)",
-              padding: "2px 6px",
-              borderRadius: "4px",
-            }}
-          >
-            <span>Scroll to zoom</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="#666">
-              <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm1-11h-2v3H8v2h3v3h2v-3h3v-2h-3V8z" />
-            </svg>
-          </div>
         </div>
       )}
+      {/* Zoom control buttons - positioned at bottom right to avoid blocking channel selector */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: margins.bottom + 10,
+          right: margins.right + 10,
+          display: "flex",
+          gap: "6px",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={handleZoomIn}
+          disabled={!client}
+          style={{
+            padding: "6px 8px",
+            fontSize: "14px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            backgroundColor: "white",
+            cursor: client ? "pointer" : "not-allowed",
+            opacity: client ? 1 : 0.5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Zoom in"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+            <line x1="8" y1="11" x2="14" y2="11" />
+            <line x1="11" y1="8" x2="11" y2="14" />
+          </svg>
+        </button>
+        <button
+          onClick={handleZoomOut}
+          disabled={!client}
+          style={{
+            padding: "6px 8px",
+            fontSize: "14px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            backgroundColor: "white",
+            cursor: client ? "pointer" : "not-allowed",
+            opacity: client ? 1 : 0.5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Zoom out"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+            <line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+        </button>
+        <button
+          onClick={handleZoomReset}
+          disabled={!client}
+          style={{
+            padding: "6px 8px",
+            fontSize: "14px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            backgroundColor: "white",
+            cursor: client ? "pointer" : "not-allowed",
+            opacity: client ? 1 : 0.5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Reset zoom"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M3 21v-5h5" />
+          </svg>
+        </button>
+      </div>
       <div
         ref={setContainer}
         style={{ position: "relative", width, height }}
