@@ -1,2 +1,4 @@
 *.si
 *.npy
+
+__pycache__

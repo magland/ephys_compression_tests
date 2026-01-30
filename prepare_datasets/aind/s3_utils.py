@@ -115,9 +115,11 @@ def download_s3_folder(s3_url: str, local_dir: str, skip_confirmation: bool = Fa
             Path(local_file_dir).mkdir(parents=True, exist_ok=True)
         
         # Download the file with progress callback
+        # Using download_fileobj to write directly to file for partial download support
         print(f"[{idx}/{len(files_to_download)}] {relative_path} ({file_size:,} bytes)")
         progress = ProgressCallback(relative_path, file_size)
-        s3.download_file(bucket_name, s3_key, local_file, Callback=progress)
+        with open(local_file, 'wb') as f:
+            s3.download_fileobj(bucket_name, s3_key, f, Callback=progress)
         print()  # New line after progress
         
         downloaded_bytes += file_size
