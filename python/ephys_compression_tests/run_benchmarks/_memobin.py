@@ -136,6 +136,32 @@ def construct_dataset_url(
     return f"https://tempory.net/f/memobin/ephys_compression_tests/{path}"
 
 
+def construct_reconstructed_url(
+    algorithm_name: str,
+    dataset_name: str,
+    algorithm_version: str,
+    dataset_version: str,
+    system_version: str,
+    format: str = "dat",
+) -> str:
+    """Construct the memobin URL for a reconstructed array.
+
+    Args:
+        algorithm_name: Name of the algorithm
+        dataset_name: Name of the dataset
+        algorithm_version: Version of the algorithm
+        dataset_version: Version of the dataset
+        system_version: Version of the system
+        format: File format ("dat", "npy", or "json")
+
+    Returns:
+        The constructed memobin URL for the reconstructed array
+    """
+    version_str = f"v{algorithm_version}-{dataset_version}-{system_version}"
+    path = f"reconstructed/{algorithm_name}/{dataset_name}/{version_str}/reconstructed.{format}"
+    return f"https://tempory.net/f/memobin/ephys_compression_tests/{path}"
+
+
 def upload_to_memobin(
     data: dict | bytes,
     url: str,

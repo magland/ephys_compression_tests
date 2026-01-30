@@ -48,7 +48,7 @@ def run_compression_benchmark(
     decode_fn: Callable,
     verbose: bool = True,
     lossy: bool = False,
-) -> Tuple[Dict[str, Any], bytes]:
+) -> Tuple[Dict[str, Any], bytes, np.ndarray]:
     """Run compression and decompression benchmarks for an algorithm.
 
     Args:
@@ -57,11 +57,13 @@ def run_compression_benchmark(
         encode_fn: Compression function
         decode_fn: Decompression function
         verbose: Whether to print progress messages
+        lossy: Whether the algorithm is lossy
 
     Returns:
         Tuple containing:
         - result: Dictionary with benchmark metrics
         - encoded: Compressed data bytes
+        - decoded: Decompressed data array
     """
     if data.ndim == 1:
         data = data[:, np.newaxis]
@@ -132,4 +134,4 @@ def run_compression_benchmark(
         "max_error": max_error,
     }
 
-    return result, encoded
+    return result, encoded, decoded

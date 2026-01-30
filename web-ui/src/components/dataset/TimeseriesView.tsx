@@ -5,22 +5,31 @@ import { useTimeseriesDataClient } from "../../hooks/useTimeseriesDataClient";
 import { Dataset } from "../../types";
 import { Margins, Range, WorkerMessage } from "./WorkerTypes";
 import { initialState, timeseriesViewReducer } from "./timeseriesViewReducer";
+import { ReconstructedDataInfo, ComparisonMode } from "../../types/comparison";
+import { TimeseriesDataClient } from "../../hooks/TimeseriesDataClient";
 
 interface TimeseriesViewProps {
   width: number;
   height: number;
   dataset: Dataset;
+  comparisonMode?: ComparisonMode;
+  reconstructedInfo?: ReconstructedDataInfo | null;
 }
 
 const TimeseriesView: React.FC<TimeseriesViewProps> = ({
   width,
   height,
   dataset,
+  comparisonMode = "original",
+  reconstructedInfo = null,
 }) => {
   const { client, error: clientError } = useTimeseriesDataClient(dataset);
   const [dataT, setDataT] = useState<number[] | null>(null);
   const [dataY, setDataY] = useState<SupportedTypedArray | null>(null);
   const [dataYAll, setDataYAll] = useState<SupportedTypedArray[] | null>(null);
+  const [dataYReconstructed, setDataYReconstructed] = useState<SupportedTypedArray | null>(null);
+  const [dataYResiduals, setDataYResiduals] = useState<SupportedTypedArray | null>(null);
+  const [reconstructedClient, setReconstructedClient] = useState<TimeseriesDataClient | null>(null);
   const [error, setError] = useState<string | null>(clientError);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<number | "all">(0);

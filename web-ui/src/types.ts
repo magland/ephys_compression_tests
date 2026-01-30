@@ -16,6 +16,7 @@ export interface BenchmarkResult {
   timestamp: number;
   rmse?: number;
   max_error?: number;
+  reconstructed_url_raw?: string;
 }
 
 export interface Algorithm {

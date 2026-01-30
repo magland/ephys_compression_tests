@@ -7,6 +7,7 @@ from ..algorithms import algorithms
 from ..datasets import datasets
 from ._memobin import construct_memobin_url, upload_to_memobin
 from .upload_dataset import upload_dataset_to_memobin
+from .upload_reconstructed import upload_reconstructed_to_memobin
 from .cache_management import check_cached_result, save_result_to_cache
 from .benchmark_timing import run_compression_benchmark
 from .collect_info import collect_algorithm_info, collect_dataset_info
@@ -152,7 +153,7 @@ def run_benchmarks(
 
             # Run the benchmark
             lossy = "lossy" in alg_tags
-            result, encoded = run_compression_benchmark(
+            result, encoded, decoded = run_compression_benchmark(
                 data,
                 alg_name,
                 algorithm.encode,
@@ -173,13 +174,14 @@ def run_benchmarks(
             )
             results.append(result)
 
-            # Save result and compressed data
+            # Save result, compressed data, and reconstructed data (for lossy algorithms)
             save_result_to_cache(
                 result,
                 encoded,
                 cache_dir,
                 dataset.name,
                 alg_name,
+                reconstructed_data=decoded if lossy else None,
             )
             print(
                 f"  Results saved to: {os.path.join(cache_dir, dataset.name, alg_name)}"
@@ -201,15 +203,35 @@ def run_benchmarks(
                         memobin_api_key,
                     )
                     if verbose:
-                        print("  Successfully uploaded to memobin")
+                        print("  Successfully uploaded benchmark result to memobin")
                 except Exception as e:
                     print(f"  Warning: Failed to upload to memobin: {str(e)}")
+
+                # Upload reconstructed array for lossy algorithms
+                if lossy:
+                    try:
+                        upload_reconstructed_to_memobin(
+                            decoded,
+                            alg_name,
+                            dataset.name,
+                            algorithm.version,
+                            dataset.version,
+                            system_version,
+                            memobin_api_key,
+                            verbose,
+                        )
+                    except Exception as e:
+                        print(f"  Warning: Failed to upload reconstructed data to memobin: {str(e)}")
 
     print("\n=== Benchmark Run Complete ===\n")
 
     # Collect algorithm and dataset information
     algorithm_info = collect_algorithm_info(algorithms)
     dataset_info = collect_dataset_info(datasets)
+    
+    # Add reconstructed URLs to results for lossy algorithms
+    from .collect_info import add_reconstructed_urls_to_results
+    add_reconstructed_urls_to_results(results, algorithms_to_run)
 
     # Upload final benchmark status
     if memobin_api_key and upload_enabled:

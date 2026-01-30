@@ -316,7 +316,7 @@ for ar_order in [2, 8]:
             return decode0_ar_lossy
         algorithm_dicts.append({
             "name": f"ans-ar{ar_order}-lossy-tol{tolerance}",
-            "version": "2",
+            "version": "3",
             "encode": make_encode_ar_lossy(),
             "decode": make_decode_ar_lossy(),
             "description": f"ANS with lossy auto-regressive prediction encoding of order {ar_order} and tolerance {tolerance}",

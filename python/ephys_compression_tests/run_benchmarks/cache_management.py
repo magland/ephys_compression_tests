@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Optional, Dict, Any
+import numpy as np
 from ._memobin import (
     construct_memobin_url,
     download_from_memobin,
@@ -95,6 +96,7 @@ def save_result_to_cache(
     cache_dir: str,
     dataset_name: str,
     algorithm_name: str,
+    reconstructed_data: Optional[np.ndarray] = None,
 ) -> None:
     """Save benchmark result and compressed data to cache.
 
@@ -104,10 +106,12 @@ def save_result_to_cache(
         cache_dir: Directory to store cached results
         dataset_name: Name of the dataset
         algorithm_name: Name of the algorithm
+        reconstructed_data: Optional reconstructed array for lossy algorithms
     """
     test_dir = os.path.join(cache_dir, dataset_name, algorithm_name)
     metadata_file = os.path.join(test_dir, "metadata.json")
     compressed_file = os.path.join(test_dir, "compressed.dat")
+    reconstructed_file = os.path.join(test_dir, "reconstructed.dat")
 
     os.makedirs(test_dir, exist_ok=True)
     cache_data = {"result": result}
@@ -116,3 +120,8 @@ def save_result_to_cache(
         json.dump(cache_data, f, indent=2)
     with open(compressed_file, "wb") as f:
         f.write(encoded_data)
+    
+    # Save reconstructed data for lossy algorithms
+    if reconstructed_data is not None:
+        with open(reconstructed_file, "wb") as f:
+            f.write(reconstructed_data.tobytes())

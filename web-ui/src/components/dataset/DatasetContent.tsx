@@ -2,6 +2,9 @@ import { Dataset, BenchmarkData } from "../../types";
 import { useEffect, useRef, useState } from "react";
 import TimeseriesView from "./TimeseriesView";
 import { BaseContent } from "../shared/BaseContent";
+import { LossyAlgorithmSelector } from "./LossyAlgorithmSelector";
+import { ComparisonModeSelector } from "./ComparisonModeSelector";
+import { ReconstructedDataInfo, ComparisonMode } from "../../types/comparison";
 import "../shared/ContentStyles.css";
 
 interface DatasetContentProps {
@@ -25,6 +28,8 @@ export const DatasetContent = ({
 }: DatasetContentProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
+  const [reconstructedInfo, setReconstructedInfo] = useState<ReconstructedDataInfo | null>(null);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("original");
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -71,6 +76,27 @@ export const DatasetContent = ({
 
   const timeseriesSection = (
     <div className="content-container">
+      {benchmarkData && (
+        <>
+          <LossyAlgorithmSelector
+            dataset={dataset}
+            benchmarkResults={benchmarkData.results}
+            selectedAlgorithm={reconstructedInfo?.algorithm || null}
+            onSelectAlgorithm={(info) => {
+              setReconstructedInfo(info);
+              if (info === null) {
+                setComparisonMode("original");
+              }
+            }}
+          />
+          {reconstructedInfo && (
+            <ComparisonModeSelector
+              mode={comparisonMode}
+              onModeChange={setComparisonMode}
+            />
+          )}
+        </>
+      )}
       <div
         ref={containerRef}
         style={{
@@ -81,7 +107,13 @@ export const DatasetContent = ({
           padding: "1rem",
         }}
       >
-        <TimeseriesView width={containerWidth} height={250} dataset={dataset} />
+        <TimeseriesView
+          width={containerWidth}
+          height={250}
+          dataset={dataset}
+          comparisonMode={comparisonMode}
+          reconstructedInfo={reconstructedInfo}
+        />
       </div>
     </div>
   );

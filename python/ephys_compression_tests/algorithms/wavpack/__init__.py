@@ -89,7 +89,7 @@ for bps in [2.5, 3, 4, 5, 6]:
         return wavpack_decode(x, dtype, shape)
     algorithm_dicts.append({
         "name": f"wavpack-lossy-{bps}",
-        "version": "2",
+        "version": "3",
         "encode": encode_lossy,
         "decode": decode_lossy,
         "description": f"WavPack lossy with {bps} bits per sample",
