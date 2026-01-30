@@ -57,7 +57,7 @@ def create_signed_upload_url(
     """
 
     def _create_url() -> str:
-        prefix = "https://tempory.net/f/memobin/"
+        prefix = "https://tempory.net/f/memobin/ephys_compression_tests/"
         if not url.startswith(prefix):
             raise ValueError("Invalid url. Does not have proper prefix")
 
@@ -115,7 +115,7 @@ def construct_memobin_url(
         The constructed memobin URL
     """
     path = f"{alg_name}/{dataset_name}/{alg_version}/{dataset_version}/{system_version}/{file_type}"
-    return f"https://tempory.net/f/memobin/{path}"
+    return f"https://tempory.net/f/memobin/ephys_compression_tests/{path}"
 
 
 def construct_dataset_url(
@@ -132,7 +132,7 @@ def construct_dataset_url(
         The constructed memobin URL for the dataset
     """
     path = f"datasets/{dataset_name}/{dataset_version}/{dataset_name}-{dataset_version}.{format}"
-    return f"https://tempory.net/f/memobin/{path}"
+    return f"https://tempory.net/f/memobin/ephys_compression_tests/{path}"
 
 
 def upload_to_memobin(

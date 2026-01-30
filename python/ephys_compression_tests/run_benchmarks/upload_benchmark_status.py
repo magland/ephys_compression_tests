@@ -35,5 +35,5 @@ def upload_benchmark_status(
         "completed_benchmarks": completed_benchmarks,
     }
 
-    status_url = "https://tempory.net/f/memobin/benchmark_status/current.json"
+    status_url = "https://tempory.net/f/memobin/ephys_compression_tests/benchmark_status/current.json"
     upload_to_memobin(status, status_url, memobin_api_key)

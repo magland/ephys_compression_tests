@@ -29,7 +29,7 @@ export default function Monitor() {
     try {
       const cacheBust = Math.random().toString(36).substring(2, 15);
       const response = await axios.get(
-        `https://tempory.net/f/memobin/benchmark_status/current.json?cachebust=${cacheBust}`,
+        `https://tempory.net/f/memobin/ephys_compression_tests/benchmark_status/current.json?cachebust=${cacheBust}`,
       );
       setStatus(response.data);
       setError(null);
