@@ -1,10 +1,10 @@
-from .vyom import datasets as vyom_datasets
-from .aind import datasets as aind_datasets
+from .retina512 import datasets as retina512_datasets
+from .aind_compression import datasets as aind_compression_datasets
 from ..types import Dataset
 
 datasets_list = [
-    vyom_datasets,
-    aind_datasets,
+    retina512_datasets,
+    aind_compression_datasets,
 ]
 
 datasets: list[Dataset] = []

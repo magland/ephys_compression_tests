@@ -7,12 +7,12 @@ from ...types import Dataset
 from ..._filters import bandpass_filter
 
 
-SOURCE_FILE = "aind/__init__.py"
+SOURCE_FILE = "aind-compression/__init__.py"
 
 
 def _load_long_description():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    md_path = os.path.join(current_dir, "aind.md")
+    md_path = os.path.join(current_dir, "aind-compression.md")
     with open(md_path, "r", encoding="utf-8") as f:
         return f.read()
 
@@ -39,7 +39,7 @@ def load_aind_ch101() -> np.ndarray:
 
 dataset_dicts_base = [
     {
-        "name": "aind-ch101",
+        "name": "aind-compression-np2-ProbeB-ch101",
         "version": "1",
         "description": "AIND CH101 dataset",
         "create": load_aind_ch101,
@@ -63,7 +63,7 @@ for d in dataset_dicts_base:
 
     dataset_dicts.append(
         {
-            "name": f'{d["name"]}-bandpass',
+            "name": f'{d["name"]}-filtered',
             "version": "1",
             "description": f'{d["description"]} (bandpass filtered 300-4000 Hz)',
             "create": create0,

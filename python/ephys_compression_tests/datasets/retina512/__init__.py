@@ -7,12 +7,12 @@ from ...types import Dataset
 from ..._filters import bandpass_filter
 
 
-SOURCE_FILE = "vyom/__init__.py"
+SOURCE_FILE = "retina512/__init__.py"
 
 
 def _load_long_description():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    md_path = os.path.join(current_dir, "vyom.md")
+    md_path = os.path.join(current_dir, "retina512.md")
     with open(md_path, "r", encoding="utf-8") as f:
         return f.read()
 
@@ -22,14 +22,14 @@ LONG_DESCRIPTION = _load_long_description()
 tags = ["real", "ecephys", "timeseries", "1d", "integer", "correlated"]
 
 
-def load_vyom_example_ch0_seg2_6() -> np.ndarray:
-    """Load Vyom example dataset from external URL.
+def load_retina512_example_ch0_seg2_6() -> np.ndarray:
+    """Load Retina512 example dataset from external URL.
 
     Returns:
         Array containing the loaded data
     """
     url = "https://tempory.net/ephys-compression-tests/vyom_example_ch0_seg2-6.npy"
-    print(f'Loading Vyom example dataset from {url}...')
+    print(f'Loading Retina512 example dataset from {url}...')
     response = requests.get(url)
     response.raise_for_status()
     data = np.load(io.BytesIO(response.content))
@@ -39,10 +39,10 @@ def load_vyom_example_ch0_seg2_6() -> np.ndarray:
 
 dataset_dicts_base = [
     {
-        "name": "vyom-example-ch0-seg2-6",
+        "name": "retina512-ch0-seg2-6",
         "version": "1",
-        "description": "Vyom example dataset",
-        "create": load_vyom_example_ch0_seg2_6,
+        "description": "Retina512 example dataset",
+        "create": load_retina512_example_ch0_seg2_6,
         "tags": tags,
         "source_file": SOURCE_FILE,
         "long_description": LONG_DESCRIPTION,
@@ -63,7 +63,7 @@ for d in dataset_dicts_base:
 
     dataset_dicts.append(
         {
-            "name": f'{d["name"]}-bandpass',
+            "name": f'{d["name"]}-filtered',
             "version": "1",
             "description": f'{d["description"]} (bandpass filtered 300-4000 Hz)',
             "create": create0,
