@@ -82,7 +82,7 @@ for a in algorithm_dicts_base:
     })
 
 # Add lossy versions
-for bps in [2.5, 3, 4, 5, 6]:
+for bps in [2.25, 3, 4, 5, 6]:
     def encode_lossy(x: np.ndarray, bps=bps) -> bytes:
         return wavpack_encode(x, bps=bps)
     def decode_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:

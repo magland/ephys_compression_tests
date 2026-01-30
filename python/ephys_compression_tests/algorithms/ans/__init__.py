@@ -284,7 +284,7 @@ for a in algorithm_dicts_base:
 
 # Add lossy ar
 for ar_order in [2, 8]:
-    for tolerance in [1, 2, 3, 4, 5, 6, 7]:
+    for tolerance in [1, 2, 3, 4, 6, 8, 12, 16]:
         def make_encode_ar_lossy(tolerance=tolerance, order=ar_order):
             def encode0_ar_lossy(x: np.ndarray) -> bytes:
                 assert x.ndim == 2, f"Input array must be 2D (timepoints x channels)"
