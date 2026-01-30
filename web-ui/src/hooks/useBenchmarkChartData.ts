@@ -20,6 +20,7 @@ export function useBenchmarkChartData(
             encode_speed: row.encode_mb_per_sec,
             decode_speed: row.decode_mb_per_sec,
             rmse: row.rmse,
+            max_error: row.max_error,
             tags: algorithm?.tags || [],
           };
         });
@@ -37,6 +38,7 @@ export function useBenchmarkChartData(
           encode_speed: row.encode_mb_per_sec,
           decode_speed: row.decode_mb_per_sec,
           rmse: row.rmse,
+          max_error: row.max_error,
           tags: [],
         }));
     }

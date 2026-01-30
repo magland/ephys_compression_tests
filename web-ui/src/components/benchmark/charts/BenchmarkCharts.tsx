@@ -6,7 +6,7 @@ interface BenchmarkBarChartProps {
   data: ChartData[];
   dataKey: keyof Pick<
     ChartData,
-    "compression_ratio" | "encode_speed" | "decode_speed" | "rmse"
+    "compression_ratio" | "encode_speed" | "decode_speed" | "rmse" | "max_error"
   >;
   color: string;
   xAxisTitle: string;
@@ -116,6 +116,7 @@ interface ChartData {
   encode_speed: number;
   decode_speed: number;
   rmse?: number;
+  max_error?: number;
   tags: string[];
 }
 
@@ -135,6 +136,7 @@ export function BenchmarkCharts({
   );
   const [normalize, setNormalize] = useState(false);
   const [showLossyAlgs, setShowLossyAlgs] = useState(true);
+  const [errorMetric, setErrorMetric] = useState<"rmse" | "max_error">("rmse");
 
   if (!chartData.length) return null;
 
@@ -149,8 +151,11 @@ export function BenchmarkCharts({
     ? [...filteredData].sort((a, b) => a.compression_ratio - b.compression_ratio)
     : filteredData;
 
-  // For RMSE chart, only show lossy algorithms with rmse values
-  const lossyData = chartData.filter((d) => d.tags.includes("lossy") && d.rmse !== undefined);
+  // For Error chart, only show lossy algorithms with error values
+  const lossyData = chartData.filter(
+    (d) => d.tags.includes("lossy") &&
+    (errorMetric === "rmse" ? d.rmse !== undefined : d.max_error !== undefined)
+  );
   const sortedLossyData = sortByRatio
     ? [...lossyData].sort((a, b) => a.compression_ratio - b.compression_ratio)
     : lossyData;
@@ -219,13 +224,28 @@ export function BenchmarkCharts({
           xAxisTitle="MB/s"
         />
         {sortedLossyData.length > 0 && (
-          <BenchmarkBarChart
-            title="RMSE (Lossy Algs)"
-            data={sortedLossyData}
-            dataKey="rmse"
-            color="#d62728"
-            xAxisTitle="RMSE"
-          />
+          <div>
+            <div style={{ marginBottom: "10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                Error Metric:
+                <select
+                  value={errorMetric}
+                  onChange={(e) => setErrorMetric(e.target.value as "rmse" | "max_error")}
+                  style={{ marginLeft: "8px", padding: "4px 8px" }}
+                >
+                  <option value="rmse">RMSE</option>
+                  <option value="max_error">Maximum</option>
+                </select>
+              </label>
+            </div>
+            <BenchmarkBarChart
+              title="Error (Lossy Algs)"
+              data={sortedLossyData}
+              dataKey={errorMetric}
+              color="#d62728"
+              xAxisTitle={errorMetric === "rmse" ? "RMSE" : "Maximum Error"}
+            />
+          </div>
         )}
       </div>
     </div>
