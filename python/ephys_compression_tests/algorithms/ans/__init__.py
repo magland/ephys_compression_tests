@@ -1,7 +1,52 @@
 import numpy as np
 import os
-from .ar import encode_ar, encode_ar_lossy, decode_ar
+from . import ar_numba
 from ...types import Algorithm
+
+
+# Adapter functions to match the old ar.py API
+def encode_ar(data: np.ndarray, order: int):
+    """Encode using AR model - adapter for ar_numba."""
+    coeffs, initial_points = ar_numba.fit_ar_model(data, k=order)
+    residuals_full = ar_numba.compute_residuals(data, coeffs, initial_points)
+    # Extract residuals excluding the initial points (first 'order' rows)
+    residuals = residuals_full[order:, :]
+    # Transpose initial_points to match old API: (order, channels)
+    initial_values = initial_points.T
+    return coeffs, residuals, initial_values
+
+
+def encode_ar_lossy(data: np.ndarray, order: int, step: int):
+    """Encode using AR model with lossy quantization - adapter for ar_numba."""
+    # Fit the AR model
+    coeffs, initial_points = ar_numba.fit_ar_model(data, k=order)
+    
+    # Compute residuals with quantization
+    residuals_full = ar_numba.compute_residuals_lossy(data, coeffs, initial_points, step=step)
+    
+    # Extract residuals excluding the initial points (first 'order' rows)
+    residuals = residuals_full[order:, :]
+    
+    # Transpose initial_points to match old API: (order, channels)
+    initial_values = initial_points.T
+    return coeffs, residuals, initial_values
+
+
+def decode_ar(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndarray):
+    """Decode AR encoded data - adapter for ar_numba."""
+    # Transpose initial_values from (order, channels) to (channels, order)
+    initial_points = initial_values.T
+    
+    # Create full residuals array including initial points
+    order = coeffs.shape[1]
+    n_residuals, n_channels = residuals.shape
+    n_timepoints = n_residuals + order
+    
+    residuals_full = np.zeros((n_timepoints, n_channels), dtype=np.int16)
+    residuals_full[:order, :] = initial_points.T
+    residuals_full[order:, :] = residuals
+    
+    return ar_numba.reconstruct_from_residuals(residuals_full, coeffs, initial_points)
 
 SOURCE_FILE = "ans/__init__.py"
 
@@ -273,7 +318,7 @@ for a in algorithm_dicts_base:
             return reconstructed
         algorithm_dicts.append({
             "name": a["name"] + f"-ar{order}",
-            "version": "2",
+            "version": a["version"] + f".1",
             "encode": encode0_ar,
             "decode": decode0_ar,
             "description": a["description"] + f" with auto-regressive prediction encoding of order {order}",
@@ -316,7 +361,7 @@ for ar_order in [2, 8]:
             return decode0_ar_lossy
         algorithm_dicts.append({
             "name": f"ans-ar{ar_order}-lossy-tol{tolerance}",
-            "version": "3",
+            "version": "10",
             "encode": make_encode_ar_lossy(),
             "decode": make_decode_ar_lossy(),
             "description": f"ANS with lossy auto-regressive prediction encoding of order {ar_order} and tolerance {tolerance}",
