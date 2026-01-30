@@ -83,11 +83,15 @@ for a in algorithm_dicts_base:
 
 # Add lossy versions
 for bps in [3, 4, 5, 6]:
+    def encode_lossy(x: np.ndarray, bps=bps) -> bytes:
+        return wavpack_encode(x, bps=bps)
+    def decode_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
+        return wavpack_decode(x, dtype, shape)
     algorithm_dicts.append({
         "name": f"wavpack-lossy-{bps}",
-        "version": "1",
-        "encode": lambda x: wavpack_encode(x, bps=bps),
-        "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
+        "version": "2",
+        "encode": encode_lossy,
+        "decode": decode_lossy,
         "description": f"WavPack lossy with {bps} bits per sample",
         "tags": ["wavpack", "lossy"],
         "source_file": SOURCE_FILE,

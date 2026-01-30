@@ -273,9 +273,9 @@ for a in algorithm_dicts_base:
             return reconstructed
         algorithm_dicts.append({
             "name": a["name"] + f"-ar{order}",
-            "version": a["version"],
-            "encode": encode0_ar_lossy,
-            "decode": decode0_ar_lossy,
+            "version": "2",
+            "encode": encode0_ar,
+            "decode": decode0_ar,
             "description": a["description"] + f" with auto-regressive prediction encoding of order {order}",
             "tags": a["tags"] + [f"ar{order}"],
             "source_file": a["source_file"],
@@ -285,36 +285,40 @@ for a in algorithm_dicts_base:
 # Add lossy ar
 for ar_order in [2, 8]:
     for tolerance in [1, 2, 3, 4, 5]:
-        def encode0_ar_lossy(x: np.ndarray, tolerance=tolerance, order=ar_order) -> bytes:
-            assert x.ndim == 2, f"Input array must be 2D (timepoints x channels)"
-            coeffs, residuals, initial_values = encode_ar_lossy(x, order=order, step=tolerance * 2 + 1)
-            # coeffs: (n_channels x order), residuals: (n_timepoints-order x n_channels), initial_values: (order x n_channels)
-            encoded_residuals = ans_encode_0(residuals)
-            coeffs_bytes = coeffs.astype(np.float32).tobytes()
-            initial_values_bytes = initial_values.astype(np.int16).tobytes()
-            return coeffs_bytes + initial_values_bytes + encoded_residuals
-        def decode0_ar_lossy(x: bytes, dtype: str, shape: tuple, order=ar_order) -> np.ndarray:
-            assert len(shape) == 2, f"Shape must be 2D (timepoints x channels)"
-            dtype_np = np.dtype(dtype)
-            n_channels = shape[1]
-            # coeffs is (n_channels x order)
-            num_bytes_coeffs = n_channels * order * np.dtype(np.float32).itemsize
-            coeffs_bytes = x[:num_bytes_coeffs]
-            coeffs = np.frombuffer(coeffs_bytes, dtype=np.float32).reshape((n_channels, order))
-            # initial_values is (order x n_channels)
-            num_bytes_initial_values = order * n_channels * dtype_np.itemsize
-            initial_values_bytes = x[num_bytes_coeffs : num_bytes_coeffs + num_bytes_initial_values]
-            initial_values = np.frombuffer(initial_values_bytes, dtype=dtype_np).reshape((order, n_channels))
-            encoded_residuals = x[num_bytes_coeffs + num_bytes_initial_values :]
-            # residuals is ((shape[0]-order) x n_channels)
-            residuals = ans_decode_0(encoded_residuals, dtype, (shape[0]-order, n_channels))
-            reconstructed = decode_ar(coeffs, residuals, initial_values)
-            return reconstructed
+        def make_encode_ar_lossy(tolerance=tolerance, order=ar_order):
+            def encode0_ar_lossy(x: np.ndarray) -> bytes:
+                assert x.ndim == 2, f"Input array must be 2D (timepoints x channels)"
+                coeffs, residuals, initial_values = encode_ar_lossy(x, order=order, step=tolerance * 2 + 1)
+                # coeffs: (n_channels x order), residuals: (n_timepoints-order x n_channels), initial_values: (order x n_channels)
+                encoded_residuals = ans_encode_0(residuals)
+                coeffs_bytes = coeffs.astype(np.float32).tobytes()
+                initial_values_bytes = initial_values.astype(np.int16).tobytes()
+                return coeffs_bytes + initial_values_bytes + encoded_residuals
+            return encode0_ar_lossy
+        def make_decode_ar_lossy(order=ar_order):
+            def decode0_ar_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
+                assert len(shape) == 2, f"Shape must be 2D (timepoints x channels)"
+                dtype_np = np.dtype(dtype)
+                n_channels = shape[1]
+                # coeffs is (n_channels x order)
+                num_bytes_coeffs = n_channels * order * np.dtype(np.float32).itemsize
+                coeffs_bytes = x[:num_bytes_coeffs]
+                coeffs = np.frombuffer(coeffs_bytes, dtype=np.float32).reshape((n_channels, order))
+                # initial_values is (order x n_channels)
+                num_bytes_initial_values = order * n_channels * dtype_np.itemsize
+                initial_values_bytes = x[num_bytes_coeffs : num_bytes_coeffs + num_bytes_initial_values]
+                initial_values = np.frombuffer(initial_values_bytes, dtype=dtype_np).reshape((order, n_channels))
+                encoded_residuals = x[num_bytes_coeffs + num_bytes_initial_values :]
+                # residuals is ((shape[0]-order) x n_channels)
+                residuals = ans_decode_0(encoded_residuals, dtype, (shape[0]-order, n_channels))
+                reconstructed = decode_ar(coeffs, residuals, initial_values)
+                return reconstructed
+            return decode0_ar_lossy
         algorithm_dicts.append({
             "name": f"ans-ar{ar_order}-lossy-tol{tolerance}",
-            "version": "1",
-            "encode": encode0_ar_lossy,
-            "decode": decode0_ar_lossy,
+            "version": "2",
+            "encode": make_encode_ar_lossy(),
+            "decode": make_decode_ar_lossy(),
             "description": f"ANS with lossy auto-regressive prediction encoding of order {ar_order} and tolerance {tolerance}",
             "tags": ["ans", "lossy", f"ar{ar_order}"],
             "source_file": SOURCE_FILE,
