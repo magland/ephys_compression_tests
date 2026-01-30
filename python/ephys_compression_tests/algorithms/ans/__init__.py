@@ -256,7 +256,7 @@ for a in algorithm_dicts_base:
         })
 
 # Add lossy ar2
-for tolerance in [1, 2, 3]:
+for tolerance in [1, 2, 3, 4, 5]:
     def encode0_ar2_lossy(x: np.ndarray, tolerance=tolerance) -> bytes:
         coeffs, residuals, initial_values = encode_ar_lossy(x, order=2, step=tolerance * 2 + 1)
         encoded_residuals = ans_encode_0(residuals)
@@ -277,7 +277,7 @@ for tolerance in [1, 2, 3]:
         reconstructed = decode_ar(coeffs, residuals, initial_values)
         return reconstructed.reshape(shape)
     algorithm_dicts.append({
-        "name": f"ans-ar2-lossy-{tolerance}",
+        "name": f"ans-ar2-lossy-tol{tolerance}",
         "version": "1",
         "encode": encode0_ar2_lossy,
         "decode": decode0_ar2_lossy,
