@@ -325,13 +325,29 @@ const TimeseriesView: React.FC<TimeseriesViewProps> = ({
       }
       return { min, max };
     } else if (dataY) {
-      return {
-        min: computeMin(dataY),
-        max: computeMax(dataY),
-      };
+      let min = computeMin(dataY);
+      let max = computeMax(dataY);
+
+      // When comparing with reconstructed data, include that data in the range calculation
+      if (comparisonMode === "overlay" || comparisonMode === "side-by-side") {
+        if (dataYReconstructed) {
+          const reconstructedMin = computeMin(dataYReconstructed);
+          const reconstructedMax = computeMax(dataYReconstructed);
+          if (reconstructedMin < min) min = reconstructedMin;
+          if (reconstructedMax > max) max = reconstructedMax;
+        }
+      } else if (comparisonMode === "residuals") {
+        // For residuals mode, use only the residuals range
+        if (dataYResiduals) {
+          min = computeMin(dataYResiduals);
+          max = computeMax(dataYResiduals);
+        }
+      }
+
+      return { min, max };
     }
     return { min: 0, max: 1 };
-  }, [dataY, dataYAll]);
+  }, [dataY, dataYAll, dataYReconstructed, dataYResiduals, comparisonMode]);
 
   // Handle dimension changes
   useEffect(() => {
