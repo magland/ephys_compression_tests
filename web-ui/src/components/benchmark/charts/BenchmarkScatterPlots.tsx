@@ -6,6 +6,7 @@ interface ChartData {
   compression_ratio: number;
   encode_speed: number;
   decode_speed: number;
+  tags: string[];
 }
 
 interface BenchmarkScatterPlotsProps {
@@ -16,11 +17,17 @@ export function BenchmarkScatterPlots({
   chartData,
 }: BenchmarkScatterPlotsProps) {
   const [showLabels, setShowLabels] = useState(false);
+  const [showLossyAlgs, setShowLossyAlgs] = useState(true);
 
   if (!chartData.length) return null;
 
+  // Filter data based on showLossyAlgs
+  const filteredData = showLossyAlgs
+    ? chartData
+    : chartData.filter((d) => !d.tags.includes("lossy"));
+
   const uniqueAlgorithms = Array.from(
-    new Set(chartData.map((d) => d.algorithmOrDataset)),
+    new Set(filteredData.map((d) => d.algorithmOrDataset)),
   );
 
   const colors = [
@@ -38,17 +45,20 @@ export function BenchmarkScatterPlots({
 
   // Create traces for each algorithm
   const traces = uniqueAlgorithms.flatMap((algo, i) => {
-    const algoData = chartData.filter((d) => d.algorithmOrDataset === algo);
+    const algoData = filteredData.filter((d) => d.algorithmOrDataset === algo);
+    const isLossy = algoData.length > 0 && algoData[0].tags.includes("lossy");
+    const displayName = isLossy ? `${algo}*` : algo;
     const baseTrace = {
-      name: algo,
+      name: displayName,
       mode: showLabels ? ("markers+text" as const) : ("markers" as const),
       marker: {
-        color: colors[i % colors.length],
+        color: isLossy ? "red" : colors[i % colors.length],
         symbol: markers[Math.floor(i / colors.length) % markers.length],
         size: 10,
       },
-      text: showLabels ? algoData.map(() => algo) : [],
+      text: showLabels ? algoData.map(() => displayName) : [],
       textposition: "top center" as const,
+      textfont: isLossy ? { color: "red" } : undefined,
       showlegend: true,
       legendgroup: algo,
     };
@@ -88,14 +98,24 @@ export function BenchmarkScatterPlots({
     <div style={{ margin: "20px 0" }}>
       <div style={{ marginBottom: "10px" }}>
         <h2 style={{ marginBottom: "10px" }}>Performance Relationships</h2>
-        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <input
-            type="checkbox"
-            checked={showLabels}
-            onChange={(e) => setShowLabels(e.target.checked)}
-          />
-          Show point labels
-        </label>
+        <div style={{ display: "flex", gap: "16px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              checked={showLabels}
+              onChange={(e) => setShowLabels(e.target.checked)}
+            />
+            Show point labels
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              checked={showLossyAlgs}
+              onChange={(e) => setShowLossyAlgs(e.target.checked)}
+            />
+            Show lossy algs
+          </label>
+        </div>
       </div>
       <Plot
         data={traces}

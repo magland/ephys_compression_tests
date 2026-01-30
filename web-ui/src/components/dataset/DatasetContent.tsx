@@ -13,6 +13,8 @@ interface DatasetContentProps {
     reference_compression_ratio: number | null;
     encode_speed: number;
     decode_speed: number;
+    rmse?: number;
+    tags: string[];
   }>;
 }
 

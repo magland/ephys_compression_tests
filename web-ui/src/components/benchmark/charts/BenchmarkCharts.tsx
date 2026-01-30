@@ -6,7 +6,7 @@ interface BenchmarkBarChartProps {
   data: ChartData[];
   dataKey: keyof Pick<
     ChartData,
-    "compression_ratio" | "encode_speed" | "decode_speed"
+    "compression_ratio" | "encode_speed" | "decode_speed" | "rmse"
   >;
   color: string;
   xAxisTitle: string;
@@ -41,7 +41,10 @@ function BenchmarkBarChart({
             type: "bar",
             orientation: "h",
             y: normalizedData.map((d) => d.algorithmOrDataset),
-            x: normalizedData.map((d) => d[dataKey]),
+            x: normalizedData.map((d) => {
+              const value = d[dataKey];
+              return value !== undefined ? value : 0;
+            }),
             marker: { color },
             name: title,
             hovertemplate:
@@ -87,7 +90,17 @@ function BenchmarkBarChart({
           height: Math.max(300, data.length * 23 + 40),
           margin: { t: 5, r: 30, l: 200, b: 30 },
           xaxis: { title: xAxisTitle },
-          yaxis: { automargin: true, ticksuffix: "  " },
+          yaxis: {
+            automargin: true,
+            ticksuffix: "  ",
+            tickmode: "array",
+            tickvals: normalizedData.map((d) => d.algorithmOrDataset),
+            ticktext: normalizedData.map((d) =>
+              d.tags.includes("lossy")
+                ? `<span style="color: red;">${d.algorithmOrDataset}*</span>`
+                : d.algorithmOrDataset
+            ),
+          },
           dragmode: false,
         }}
         config={{ displayModeBar: false }}
@@ -102,6 +115,8 @@ interface ChartData {
   reference_compression_ratio: number | null; // the highest compression ratio for the dataset (if algorithmOrDataset is a dataset)
   encode_speed: number;
   decode_speed: number;
+  rmse?: number;
+  tags: string[];
 }
 
 interface BenchmarkChartsProps {
@@ -119,17 +134,31 @@ export function BenchmarkCharts({
     showSortByCompressionRatio ? true : false,
   );
   const [normalize, setNormalize] = useState(false);
+  const [showLossyAlgs, setShowLossyAlgs] = useState(true);
 
   if (!chartData.length) return null;
 
+  // Filter data based on showLossyAlgs
+  // If showLossyAlgs is true, show all algorithms (both lossy and lossless)
+  // If showLossyAlgs is false, only show lossless algorithms
+  const filteredData = showLossyAlgs
+    ? chartData
+    : chartData.filter((d) => !d.tags.includes("lossy"));
+
   const sortedData = sortByRatio
-    ? [...chartData].sort((a, b) => a.compression_ratio - b.compression_ratio)
-    : chartData;
+    ? [...filteredData].sort((a, b) => a.compression_ratio - b.compression_ratio)
+    : filteredData;
+
+  // For RMSE chart, only show lossy algorithms with rmse values
+  const lossyData = chartData.filter((d) => d.tags.includes("lossy") && d.rmse !== undefined);
+  const sortedLossyData = sortByRatio
+    ? [...lossyData].sort((a, b) => a.compression_ratio - b.compression_ratio)
+    : lossyData;
 
   return (
     <div>
       {showSortByCompressionRatio && (
-        <div style={{ marginBottom: "10px" }}>
+        <div style={{ marginBottom: "10px", display: "flex", gap: "16px" }}>
           <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <input
               type="checkbox"
@@ -137,6 +166,14 @@ export function BenchmarkCharts({
               onChange={(e) => setSortByRatio(e.target.checked)}
             />
             Sort by compression ratio
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              checked={showLossyAlgs}
+              onChange={(e) => setShowLossyAlgs(e.target.checked)}
+            />
+            Show lossy algs
           </label>
         </div>
       )}
@@ -181,6 +218,15 @@ export function BenchmarkCharts({
           color="#ff7300"
           xAxisTitle="MB/s"
         />
+        {sortedLossyData.length > 0 && (
+          <BenchmarkBarChart
+            title="RMSE (Lossy Algs)"
+            data={sortedLossyData}
+            dataKey="rmse"
+            color="#d62728"
+            xAxisTitle="RMSE"
+          />
+        )}
       </div>
     </div>
   );

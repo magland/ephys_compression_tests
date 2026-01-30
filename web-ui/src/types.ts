@@ -14,6 +14,8 @@ export interface BenchmarkResult {
   array_shape: number[];
   array_dtype: string;
   timestamp: number;
+  rmse?: number;
+  max_error?: number;
 }
 
 export interface Algorithm {

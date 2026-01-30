@@ -80,27 +80,18 @@ for a in algorithm_dicts_base:
         "long_description": a["long_description"]
     })
 
-# Add lossy version
-algorithm_dicts.append({
-    "name": "wavpack-lossy-3",
-    "version": "1",
-    "encode": lambda x: wavpack_encode(x, bps=3),
-    "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
-    "description": "WavPack lossy with 3 bits per sample",
-    "tags": ["wavpack", "lossy"],
-    "source_file": SOURCE_FILE,
-    "long_description": LONG_DESCRIPTION,
-})
-algorithm_dicts.append({
-    "name": "wavpack-lossy-4",
-    "version": "1",
-    "encode": lambda x: wavpack_encode(x, bps=4),
-    "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
-    "description": "WavPack lossy with 4 bits per sample",
-    "tags": ["wavpack", "lossy"],
-    "source_file": SOURCE_FILE,
-    "long_description": LONG_DESCRIPTION,
-})
+# Add lossy versions
+for bps in [3, 4, 5, 6]:
+    algorithm_dicts.append({
+        "name": f"wavpack-lossy-{bps}",
+        "version": "1",
+        "encode": lambda x: wavpack_encode(x, bps=bps),
+        "decode": lambda x, dtype, shape: wavpack_decode(x, dtype, shape),
+        "description": f"WavPack lossy with {bps} bits per sample",
+        "tags": ["wavpack", "lossy"],
+        "source_file": SOURCE_FILE,
+        "long_description": LONG_DESCRIPTION,
+    })
 
 algorithms = [
     Algorithm(**a)

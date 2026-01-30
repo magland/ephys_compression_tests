@@ -75,6 +75,7 @@ export default function BenchmarkView({ benchmarkData }: BenchmarkViewProps) {
   // Get chart data for specific dataset or algorithm view
   const chartData = useBenchmarkChartData(
     benchmarkData?.results || [],
+    benchmarkData?.algorithms || [],
     dataset?.name || null,
     algorithm?.name || null,
   );

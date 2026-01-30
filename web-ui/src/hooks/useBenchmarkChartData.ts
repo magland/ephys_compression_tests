@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { BenchmarkResult } from "../types";
+import { Algorithm, BenchmarkResult } from "../types";
 
 export function useBenchmarkChartData(
   results: BenchmarkResult[],
+  algorithms: Algorithm[],
   selectedDataset?: string | null,
   selectedAlgorithm?: string | null,
 ) {
@@ -10,13 +11,18 @@ export function useBenchmarkChartData(
     if (selectedDataset) {
       return results
         .filter((row) => row.dataset === selectedDataset)
-        .map((row) => ({
-          algorithmOrDataset: row.algorithm,
-          compression_ratio: row.compression_ratio,
-          reference_compression_ratio: null,
-          encode_speed: row.encode_mb_per_sec,
-          decode_speed: row.decode_mb_per_sec,
-        }));
+        .map((row) => {
+          const algorithm = algorithms.find((a) => a.name === row.algorithm);
+          return {
+            algorithmOrDataset: row.algorithm,
+            compression_ratio: row.compression_ratio,
+            reference_compression_ratio: null,
+            encode_speed: row.encode_mb_per_sec,
+            decode_speed: row.decode_mb_per_sec,
+            rmse: row.rmse,
+            tags: algorithm?.tags || [],
+          };
+        });
     } else if (selectedAlgorithm) {
       return results
         .filter((row) => row.algorithm === selectedAlgorithm)
@@ -30,8 +36,10 @@ export function useBenchmarkChartData(
           ),
           encode_speed: row.encode_mb_per_sec,
           decode_speed: row.decode_mb_per_sec,
+          rmse: row.rmse,
+          tags: [],
         }));
     }
     return [];
-  }, [results, selectedDataset, selectedAlgorithm]);
+  }, [results, algorithms, selectedDataset, selectedAlgorithm]);
 }
