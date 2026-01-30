@@ -22,7 +22,7 @@ LONG_DESCRIPTION = _load_long_description()
 tags = ["real", "ecephys", "timeseries", "integer", "correlated"]
 
 
-def load_aind_ch101() -> np.ndarray:
+def load_aind_np2_probeB_ch101() -> np.ndarray:
     """Load AIND CH101 dataset from external URL.
 
     Returns:
@@ -35,8 +35,16 @@ def load_aind_ch101() -> np.ndarray:
     data = np.load(io.BytesIO(response.content)).flatten()
     return data
 
-def load_aind_ch101_110() -> np.ndarray:
+def load_aind_np2_probeB_ch101_110() -> np.ndarray:
     url = "https://tempory.net/ephys-compression-tests/aind/aind_compression_np2_probeB_ch101-110.raw.npy"
+    print(f'Loading AIND dataset from {url}...')
+    response = requests.get(url)
+    response.raise_for_status()
+    data = np.load(io.BytesIO(response.content))
+    return data
+
+def load_aind_np1_probeA_101_110() -> np.ndarray:
+    url = "https://tempory.net/ephys-compression-tests/aind/aind-np1-probeA-ch101-110.raw.npy"
     print(f'Loading AIND dataset from {url}...')
     response = requests.get(url)
     response.raise_for_status()
@@ -48,7 +56,7 @@ dataset_dicts_base = [
         "name": "aind-compression-np2-ProbeB-ch101",
         "version": "1",
         "description": "AIND CH101 dataset",
-        "create": load_aind_ch101,
+        "create": load_aind_np2_probeB_ch101,
         "tags": tags + ["single-channel"],
         "source_file": SOURCE_FILE,
         "long_description": LONG_DESCRIPTION,
@@ -57,7 +65,16 @@ dataset_dicts_base = [
         "name": "aind-compression-np2-ProbeB-ch101-110",
         "version": "1",
         "description": "AIND CH101-110 dataset",
-        "create": load_aind_ch101_110,
+        "create": load_aind_np2_probeB_ch101_110,
+        "tags": tags + ["multi-channel"],
+        "source_file": SOURCE_FILE,
+        "long_description": LONG_DESCRIPTION,
+    },
+    {
+        "name": "aind-compression-np1-ProbeA-ch101-110",
+        "version": "1",
+        "description": "AIND NP1 ProbeA CH101-110 dataset",
+        "create": load_aind_np1_probeA_101_110,
         "tags": tags + ["multi-channel"],
         "source_file": SOURCE_FILE,
         "long_description": LONG_DESCRIPTION,
