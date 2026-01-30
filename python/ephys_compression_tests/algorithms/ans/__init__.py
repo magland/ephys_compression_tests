@@ -264,9 +264,9 @@ for ar_order in [2, 8]:
             coeffs_bytes = coeffs.astype(np.float32).tobytes()
             initial_values_bytes = initial_values.astype(np.int16).tobytes()
             return coeffs_bytes + initial_values_bytes + encoded_residuals
-        def decode0_ar_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
+        def decode0_ar_lossy(x: bytes, dtype: str, shape: tuple, order=ar_order) -> np.ndarray:
             dtype_np = np.dtype(dtype)
-            num_bytes_coeffs = 2 * np.dtype(np.float32).itemsize
+            num_bytes_coeffs = order * np.dtype(np.float32).itemsize
             coeffs_bytes = x[:num_bytes_coeffs]
             coeffs = np.frombuffer(coeffs_bytes, dtype=np.float32)
             num_initial_values = len(coeffs)
