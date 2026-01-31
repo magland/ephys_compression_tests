@@ -318,7 +318,7 @@ for a in algorithm_dicts_base:
             return reconstructed
         algorithm_dicts.append({
             "name": a["name"] + f"-ar{order}",
-            "version": a["version"] + f".2",
+            "version": a["version"] + f".3",
             "encode": encode0_ar,
             "decode": decode0_ar,
             "description": a["description"] + f" with auto-regressive prediction encoding of order {order}",
@@ -361,7 +361,7 @@ for ar_order in [2, 8]:
             return decode0_ar_lossy
         algorithm_dicts.append({
             "name": f"ans-ar{ar_order}-lossy-tol{tolerance}",
-            "version": "11",
+            "version": "12",
             "encode": make_encode_ar_lossy(),
             "decode": make_decode_ar_lossy(),
             "description": f"ANS with lossy auto-regressive prediction encoding of order {ar_order} and tolerance {tolerance}",

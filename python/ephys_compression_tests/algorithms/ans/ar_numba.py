@@ -26,7 +26,12 @@ def _fit_ar_model_channel(channel_data: np.ndarray, k: int, subsample_factor: in
     
     # Determine subsampling stride
     max_samples = n - k
-    stride = max(1, max_samples // min_samples, subsample_factor)
+    # Use subsample_factor, but ensure we don't skip so much that we get fewer than min_samples
+    if subsample_factor * min_samples > max_samples:
+        # If subsample_factor would give us too few samples, reduce stride
+        stride = max(1, max_samples // min_samples)
+    else:
+        stride = max(1, subsample_factor)
     
     # Number of samples we'll actually use
     n_samples = (max_samples + stride - 1) // stride
@@ -41,7 +46,7 @@ def _fit_ar_model_channel(channel_data: np.ndarray, k: int, subsample_factor: in
         if sample_idx >= n_samples:
             break
         for i in range(k):
-            X[sample_idx, i] = np.float32(channel_data[t - k + i])
+            X[sample_idx, i] = np.float32(channel_data[t - 1 - i])
         y[sample_idx] = np.float32(channel_data[t])
         sample_idx += 1
     
@@ -122,7 +127,7 @@ def _compute_residuals_jit(data: np.ndarray, coefficients: np.ndarray,
             # Predict from previous k samples
             predicted = np.float32(0.0)
             for i in range(k):
-                predicted += coef[i] * np.float32(data[t - k + i, ch])
+                predicted += coef[i] * np.float32(data[t - 1 - i, ch])
             
             # Residual = actual - predicted (rounded)
             residuals[t, ch] = data[t, ch] - np.int16(np.round(predicted))
@@ -154,7 +159,7 @@ def _compute_residuals_lossy_jit(data: np.ndarray, coefficients: np.ndarray,
             # Predict from previous k reconstructed samples
             predicted = np.float32(0.0)
             for i in range(k):
-                predicted += coef[i] * np.float32(reconstructed[t - k + i, ch])
+                predicted += coef[i] * np.float32(reconstructed[t - 1 - i, ch])
             
             prediction_int = np.int16(np.round(predicted))
             
@@ -226,7 +231,7 @@ def _reconstruct_from_residuals_jit(residuals: np.ndarray, coefficients: np.ndar
             # Predict from previous k reconstructed samples
             predicted = np.float32(0.0)
             for i in range(k):
-                predicted += coef[i] * np.float32(reconstructed[t - k + i, ch])
+                predicted += coef[i] * np.float32(reconstructed[t - 1 - i, ch])
             
             # Reconstruct: actual = predicted (rounded) + residual
             reconstructed[t, ch] = np.int16(np.round(predicted)) + residuals[t, ch]
