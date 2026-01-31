@@ -1,14 +1,14 @@
 import numpy as np
 import os
-from . import ar_numba
+from . import lpc_numba
 from ...types import Algorithm
 
 
-# Adapter functions to match the old ar.py API
-def encode_ar(data: np.ndarray, order: int):
-    """Encode using AR model - adapter for ar_numba."""
-    coeffs, initial_points = ar_numba.fit_ar_model(data, k=order)
-    residuals_full = ar_numba.compute_residuals(data, coeffs, initial_points)
+# Adapter functions
+def encode_lpc(data: np.ndarray, order: int):
+    """Encode using LPC model - adapter for lpc_numba."""
+    coeffs, initial_points = lpc_numba.fit_lpc_model(data, k=order)
+    residuals_full = lpc_numba.compute_residuals(data, coeffs, initial_points)
     # Extract residuals excluding the initial points (first 'order' rows)
     residuals = residuals_full[order:, :]
     # Transpose initial_points to match old API: (order, channels)
@@ -16,13 +16,13 @@ def encode_ar(data: np.ndarray, order: int):
     return coeffs, residuals, initial_values
 
 
-def encode_ar_lossy(data: np.ndarray, order: int, step: int):
-    """Encode using AR model with lossy quantization - adapter for ar_numba."""
-    # Fit the AR model
-    coeffs, initial_points = ar_numba.fit_ar_model(data, k=order)
-    
+def encode_lpc_lossy(data: np.ndarray, order: int, step: int):
+    """Encode using LPC model with lossy quantization - adapter for lpc_numba."""
+    # Fit the LPC model
+    coeffs, initial_points = lpc_numba.fit_lpc_model(data, k=order)
+
     # Compute residuals with quantization
-    residuals_full = ar_numba.compute_residuals_lossy(data, coeffs, initial_points, step=step)
+    residuals_full = lpc_numba.compute_residuals_lossy(data, coeffs, initial_points, step=step)
     
     # Extract residuals excluding the initial points (first 'order' rows)
     residuals = residuals_full[order:, :]
@@ -32,8 +32,8 @@ def encode_ar_lossy(data: np.ndarray, order: int, step: int):
     return coeffs, residuals, initial_values
 
 
-def decode_ar(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndarray):
-    """Decode AR encoded data - adapter for ar_numba."""
+def decode_lpc(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndarray):
+    """Decode LPC encoded data - adapter for lpc_numba."""
     # Transpose initial_values from (order, channels) to (channels, order)
     initial_points = initial_values.T
     
@@ -46,7 +46,7 @@ def decode_ar(coeffs: np.ndarray, residuals: np.ndarray, initial_values: np.ndar
     residuals_full[:order, :] = initial_points.T
     residuals_full[order:, :] = residuals
     
-    return ar_numba.reconstruct_from_residuals(residuals_full, coeffs, initial_points)
+    return lpc_numba.reconstruct_from_residuals(residuals_full, coeffs, initial_points)
 
 SOURCE_FILE = "ans/__init__.py"
 
@@ -251,7 +251,7 @@ for a in algorithm_dicts_base:
 
 # add delta2 encoding
 for a in algorithm_dicts_base:
-    def encode0_ar_lossy(x: np.ndarray, a=a) -> bytes:
+    def encode0_lpc_lossy(x: np.ndarray, a=a) -> bytes:
         assert x.ndim == 2 and x.shape[0] > 2, "Input array must be 2D with more than two timepoints"
         x_diff = np.diff(np.diff(x, axis=0), axis=0)
         first_timepoint = x[0:1, :].flatten()
@@ -261,7 +261,7 @@ for a in algorithm_dicts_base:
         first_timepoint_bytes = first_timepoint.tobytes()
         second_timepoint_bytes = second_timepoint.tobytes()
         return first_timepoint_bytes + second_timepoint_bytes + encoded_diff
-    def decode0_ar_lossy(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
+    def decode0_lpc_lossy(x: bytes, dtype: str, shape: tuple, a=a) -> np.ndarray:
         dtype_np = np.dtype(dtype)
         num_bytes_first_timepoint = dtype_np.itemsize * shape[1]
         first_timepoint_bytes = x[:num_bytes_first_timepoint]
@@ -280,8 +280,8 @@ for a in algorithm_dicts_base:
     algorithm_dicts.append({
         "name": a["name"] + "-delta2",
         "version": a["version"],
-        "encode": encode0_ar_lossy,
-        "decode": decode0_ar_lossy,
+        "encode": encode0_lpc_lossy,
+        "decode": decode0_lpc_lossy,
         "description": a["description"] + " with delta2 encoding",
         "tags": a["tags"] + ["delta2"],
         "source_file": a["source_file"],
@@ -291,15 +291,15 @@ for a in algorithm_dicts_base:
 # Add auto-regressive prediction encoding
 for a in algorithm_dicts_base:
     for order in [2, 8]:
-        def encode0_ar(x: np.ndarray, a=a, order=order) -> bytes:
+        def encode0_lpc(x: np.ndarray, a=a, order=order) -> bytes:
             assert x.ndim == 2 and x.shape[0] > order, f"Input array must be 2D (timepoints x channels) with more than {order} timepoints"
-            coeffs, residuals, initial_values = encode_ar(x, order=order)
+            coeffs, residuals, initial_values = encode_lpc(x, order=order)
             # coeffs: (n_channels x order), residuals: (n_timepoints-order x n_channels), initial_values: (order x n_channels)
             encoded_residuals = a["encode"](residuals)
             coeffs_bytes = coeffs.astype(np.float32).tobytes()
             initial_values_bytes = initial_values.astype(np.int16).tobytes()
             return coeffs_bytes + initial_values_bytes + encoded_residuals
-        def decode0_ar(x: bytes, dtype: str, shape: tuple, a=a, order=order) -> np.ndarray:
+        def decode0_lpc(x: bytes, dtype: str, shape: tuple, a=a, order=order) -> np.ndarray:
             assert len(shape) == 2, f"Shape must be 2D (timepoints x channels)"
             dtype_np = np.dtype(dtype)
             n_channels = shape[1]
@@ -314,34 +314,34 @@ for a in algorithm_dicts_base:
             encoded_residuals = x[num_bytes_coeffs + num_bytes_initial_values :]
             # residuals is ((shape[0]-order) x n_channels)
             residuals = a["decode"](encoded_residuals, dtype, (shape[0]-order, n_channels))
-            reconstructed = decode_ar(coeffs, residuals, initial_values)
+            reconstructed = decode_lpc(coeffs, residuals, initial_values)
             return reconstructed
         algorithm_dicts.append({
-            "name": a["name"] + f"-ar{order}",
+            "name": a["name"] + f"-lpc{order}",
             "version": a["version"] + f".3",
-            "encode": encode0_ar,
-            "decode": decode0_ar,
+            "encode": encode0_lpc,
+            "decode": decode0_lpc,
             "description": a["description"] + f" with auto-regressive prediction encoding of order {order}",
-            "tags": a["tags"] + [f"ar{order}"],
+            "tags": a["tags"] + [f"lpc{order}"],
             "source_file": a["source_file"],
             "long_description": a["long_description"]
         })
 
-# Add lossy ar
-for ar_order in [2, 8]:
+# Add lossy lpc
+for lpc_order in [2, 8]:
     for tolerance in [1, 2, 3, 4, 6, 8, 12, 16]:
-        def make_encode_ar_lossy(tolerance=tolerance, order=ar_order):
-            def encode0_ar_lossy(x: np.ndarray) -> bytes:
+        def make_encode_lpc_lossy(tolerance=tolerance, order=lpc_order):
+            def encode0_lpc_lossy(x: np.ndarray) -> bytes:
                 assert x.ndim == 2, f"Input array must be 2D (timepoints x channels)"
-                coeffs, residuals, initial_values = encode_ar_lossy(x, order=order, step=tolerance * 2 + 1)
+                coeffs, residuals, initial_values = encode_lpc_lossy(x, order=order, step=tolerance * 2 + 1)
                 # coeffs: (n_channels x order), residuals: (n_timepoints-order x n_channels), initial_values: (order x n_channels)
                 encoded_residuals = ans_encode_0(residuals)
                 coeffs_bytes = coeffs.astype(np.float32).tobytes()
                 initial_values_bytes = initial_values.astype(np.int16).tobytes()
                 return coeffs_bytes + initial_values_bytes + encoded_residuals
-            return encode0_ar_lossy
-        def make_decode_ar_lossy(order=ar_order):
-            def decode0_ar_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
+            return encode0_lpc_lossy
+        def make_decode_lpc_lossy(order=lpc_order):
+            def decode0_lpc_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
                 assert len(shape) == 2, f"Shape must be 2D (timepoints x channels)"
                 dtype_np = np.dtype(dtype)
                 n_channels = shape[1]
@@ -356,16 +356,16 @@ for ar_order in [2, 8]:
                 encoded_residuals = x[num_bytes_coeffs + num_bytes_initial_values :]
                 # residuals is ((shape[0]-order) x n_channels)
                 residuals = ans_decode_0(encoded_residuals, dtype, (shape[0]-order, n_channels))
-                reconstructed = decode_ar(coeffs, residuals, initial_values)
+                reconstructed = decode_lpc(coeffs, residuals, initial_values)
                 return reconstructed
-            return decode0_ar_lossy
+            return decode0_lpc_lossy
         algorithm_dicts.append({
-            "name": f"ans-ar{ar_order}-lossy-tol{tolerance}",
+            "name": f"ans-lpc{lpc_order}-lossy-tol{tolerance}",
             "version": "12",
-            "encode": make_encode_ar_lossy(),
-            "decode": make_decode_ar_lossy(),
-            "description": f"ANS with lossy auto-regressive prediction encoding of order {ar_order} and tolerance {tolerance}",
-            "tags": ["ans", "lossy", f"ar{ar_order}"],
+            "encode": make_encode_lpc_lossy(),
+            "decode": make_decode_lpc_lossy(),
+            "description": f"ANS with lossy linear predictive coding of order {lpc_order} and tolerance {tolerance}",
+            "tags": ["ans", "lossy", f"lpc{lpc_order}"],
             "source_file": SOURCE_FILE,
             "long_description": LONG_DESCRIPTION
         })

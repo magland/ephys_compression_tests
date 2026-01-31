@@ -1,5 +1,5 @@
 """
-Numba-accelerated implementation of autoregressive model operations.
+Numba-accelerated implementation of linear predictive coding (LPC) model operations.
 All operations work with int16 data.
 """
 
@@ -8,14 +8,14 @@ from numba import jit, prange
 
 
 @jit(nopython=True, parallel=False, fastmath=True)
-def _fit_ar_model_channel(channel_data: np.ndarray, k: int, subsample_factor: int,
+def _fit_lpc_model_channel(channel_data: np.ndarray, k: int, subsample_factor: int,
                          min_samples: int) -> np.ndarray:
     """
-    Fit AR model for a single channel using least squares with subsampling.
+    Fit LPC model for a single channel using least squares with subsampling.
     
     Args:
         channel_data: 1D array for a single channel (int16)
-        k: AR model order
+        k: LPC model order
         subsample_factor: Use every Nth sample for fitting
         min_samples: Minimum number of samples to use
     
@@ -75,14 +75,14 @@ def _fit_ar_model_channel(channel_data: np.ndarray, k: int, subsample_factor: in
     return coefficients
 
 
-def fit_ar_model(data: np.ndarray, k: int, subsample_factor: int = 1,
+def fit_lpc_model(data: np.ndarray, k: int, subsample_factor: int = 1,
                 min_samples: int = 1000) -> tuple[np.ndarray, np.ndarray]:
     """
-    Fit an autoregressive model of order k to multi-channel time series data.
-    
+    Fit a linear predictive coding (LPC) model of order k to multi-channel time series data.
+
     Args:
         data: 2D array of shape (timepoints, channels) with dtype int16
-        k: Order of the autoregressive model
+        k: Order of the LPC model
         subsample_factor: Use every Nth sample for fitting (default: 1)
         min_samples: Minimum number of samples to use for fitting (default: 1000)
     
@@ -93,7 +93,7 @@ def fit_ar_model(data: np.ndarray, k: int, subsample_factor: int = 1,
     n_timepoints, n_channels = data.shape
     
     if n_timepoints <= k:
-        raise ValueError(f"Need at least {k+1} timepoints for AR({k}) model")
+        raise ValueError(f"Need at least {k+1} timepoints for LPC({k}) model")
     
     # Store initial k points for each channel
     initial_points = data[:k, :].T.copy()  # (channels, k)
@@ -102,7 +102,7 @@ def fit_ar_model(data: np.ndarray, k: int, subsample_factor: int = 1,
     coefficients = np.zeros((n_channels, k), dtype=np.float32)
     
     for ch in range(n_channels):
-        coefficients[ch, :] = _fit_ar_model_channel(data[:, ch], k, subsample_factor, min_samples)
+        coefficients[ch, :] = _fit_lpc_model_channel(data[:, ch], k, subsample_factor, min_samples)
     
     return coefficients, initial_points
 
@@ -179,7 +179,7 @@ def _compute_residuals_lossy_jit(data: np.ndarray, coefficients: np.ndarray,
 def compute_residuals(data: np.ndarray, coefficients: np.ndarray, 
                       initial_points: np.ndarray) -> np.ndarray:
     """
-    Compute residuals given data and AR model coefficients.
+    Compute residuals given data and LPC model coefficients.
     
     Args:
         data: 2D array of shape (timepoints, channels) with dtype int16
@@ -242,7 +242,7 @@ def _reconstruct_from_residuals_jit(residuals: np.ndarray, coefficients: np.ndar
 def reconstruct_from_residuals(residuals: np.ndarray, coefficients: np.ndarray,
                                initial_points: np.ndarray) -> np.ndarray:
     """
-    Reconstruct original data from residuals and AR model coefficients.
+    Reconstruct original data from residuals and LPC model coefficients.
     
     Args:
         residuals: 2D array of shape (timepoints, channels) with dtype int16
@@ -262,14 +262,14 @@ def warmup(n_channels: int = 10, k: int = 10):
     
     Args:
         n_channels: Number of channels for warmup data
-        k: AR model order for warmup
+        k: LPC model order for warmup
     """
     print("Warming up JIT...", end="", flush=True)
     # Create small warmup data
     warmup_data = np.random.randint(-1000, 1000, size=(1000, n_channels), dtype=np.int16)
     
-    # Warm up fit_ar_model
-    coefficients, initial_points = fit_ar_model(warmup_data, k)
+    # Warm up fit_lpc_model
+    coefficients, initial_points = fit_lpc_model(warmup_data, k)
     
     # Warm up compute_residuals
     residuals = compute_residuals(warmup_data, coefficients, initial_points)
