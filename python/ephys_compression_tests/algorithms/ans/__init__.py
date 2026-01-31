@@ -7,7 +7,7 @@ from ...types import Algorithm
 # Adapter functions
 def encode_lpc(data: np.ndarray, order: int):
     """Encode using LPC model - adapter for lpc_numba."""
-    coeffs, initial_points = lpc_numba.fit_lpc_model(data, k=order, subsample_factor=100, min_samples=2000)
+    coeffs, initial_points = lpc_numba.fit_lpc_model(data, k=order, subsample_factor=100, min_samples=1000)
     residuals_full = lpc_numba.compute_residuals(data, coeffs, initial_points)
     # Extract residuals excluding the initial points (first 'order' rows)
     residuals = residuals_full[order:, :]
@@ -19,7 +19,7 @@ def encode_lpc(data: np.ndarray, order: int):
 def encode_lpc_lossy(data: np.ndarray, order: int, step: int):
     """Encode using LPC model with lossy quantization - adapter for lpc_numba."""
     # Fit the LPC model
-    coeffs, initial_points = lpc_numba.fit_lpc_model(data, k=order, subsample_factor=100, min_samples=2000)
+    coeffs, initial_points = lpc_numba.fit_lpc_model(data, k=order, subsample_factor=100, min_samples=1000)
 
     # Compute residuals with quantization
     residuals_full = lpc_numba.compute_residuals_lossy(data, coeffs, initial_points, step=step)
@@ -318,7 +318,7 @@ for a in algorithm_dicts_base:
             return reconstructed
         algorithm_dicts.append({
             "name": a["name"] + f"-lpc{order}",
-            "version": a["version"] + f".4",
+            "version": a["version"] + f".5",
             "encode": encode0_lpc,
             "decode": decode0_lpc,
             "description": a["description"] + f" with auto-regressive prediction encoding of order {order}",
@@ -361,7 +361,7 @@ for lpc_order in [2, 8]:
             return decode0_lpc_lossy
         algorithm_dicts.append({
             "name": f"ans-lpc{lpc_order}-lossy-tol{tolerance}",
-            "version": "13",
+            "version": "14",
             "encode": make_encode_lpc_lossy(),
             "decode": make_decode_lpc_lossy(),
             "description": f"ANS with lossy linear predictive coding of order {lpc_order} and tolerance {tolerance}",

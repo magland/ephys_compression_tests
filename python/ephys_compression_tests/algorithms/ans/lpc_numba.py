@@ -4,75 +4,25 @@ All operations work with int16 data.
 """
 
 import numpy as np
-from numba import jit, prange
+from numba import jit, prange, njit
 
 
-@jit(nopython=True, parallel=False, fastmath=True)
-def _fit_lpc_model_channel(channel_data: np.ndarray, k: int, subsample_factor: int,
-                         min_samples: int) -> np.ndarray:
-    """
-    Fit LPC model for a single channel using least squares with subsampling.
-    
-    Args:
-        channel_data: 1D array for a single channel (int16)
-        k: LPC model order
-        subsample_factor: Use every Nth sample for fitting
-        min_samples: Minimum number of samples to use
-    
-    Returns:
-        coefficients: 1D array of k coefficients (float32)
-    """
-    n = len(channel_data)
-    
-    # Determine subsampling stride
-    max_samples = n - k
-    # Use subsample_factor, but ensure we don't skip so much that we get fewer than min_samples
-    if subsample_factor * min_samples > max_samples:
-        # If subsample_factor would give us too few samples, reduce stride
-        stride = max(1, max_samples // min_samples)
-    else:
-        stride = max(1, subsample_factor)
-    
-    # Number of samples we'll actually use
-    n_samples = (max_samples + stride - 1) // stride
-    
-    # Build design matrix X and target vector y using subsampled data
-    # X has shape (n_samples, k), y has shape (n_samples,)
-    X = np.zeros((n_samples, k), dtype=np.float32)
-    y = np.zeros(n_samples, dtype=np.float32)
+@njit
+def _create_design_matrix_channel(data: np.ndarray, order: int, subsample_factor: int = 1) -> tuple[np.ndarray, np.ndarray]:
+    """Numba-optimized design matrix creation for LPC model (single channel) with optional subsampling."""
+    n = len(data)
+    n_samples = (n - order + subsample_factor - 1) // subsample_factor
+    X_design = np.zeros((n_samples, order))
+    y_target = np.zeros(n_samples)
     
     sample_idx = 0
-    for t in range(k, n, stride):
-        if sample_idx >= n_samples:
-            break
-        for i in range(k):
-            X[sample_idx, i] = np.float32(channel_data[t - 1 - i])
-        y[sample_idx] = np.float32(channel_data[t])
+    for i in range(0, n - order, subsample_factor):
+        for j in range(order):
+            X_design[sample_idx, j] = data[i + order - j - 1]
+        y_target[sample_idx] = data[i + order]
         sample_idx += 1
     
-    # Truncate if needed
-    actual_samples = sample_idx
-    if actual_samples < n_samples:
-        X = X[:actual_samples, :]
-        y = y[:actual_samples]
-    
-    # Solve normal equations: X.T @ X @ coef = X.T @ y
-    XtX = np.zeros((k, k), dtype=np.float32)
-    Xty = np.zeros(k, dtype=np.float32)
-    
-    for i in range(k):
-        for j in range(k):
-            for t in range(actual_samples):
-                XtX[i, j] += X[t, i] * X[t, j]
-    
-    for i in range(k):
-        for t in range(actual_samples):
-            Xty[i] += X[t, i] * y[t]
-    
-    # Solve the system using numpy's solver
-    coefficients = np.linalg.solve(XtX, Xty)
-    
-    return coefficients
+    return X_design[:sample_idx], y_target[:sample_idx]
 
 
 def fit_lpc_model(data: np.ndarray, k: int, subsample_factor: int = 1,
@@ -91,18 +41,32 @@ def fit_lpc_model(data: np.ndarray, k: int, subsample_factor: int = 1,
         initial_points: Array of shape (channels, k) with dtype int16 (first k samples per channel)
     """
     n_timepoints, n_channels = data.shape
-    
-    if n_timepoints <= k:
-        raise ValueError(f"Need at least {k+1} timepoints for LPC({k}) model")
+    if k >= n_timepoints:
+        raise ValueError(f"LPC order {k} must be less than data length {n_timepoints}")
     
     # Store initial k points for each channel
-    initial_points = data[:k, :].T.copy()  # (channels, k)
+    initial_points = data[:k, :].T.copy().astype(np.int16)  # Shape: (n_channels, k)
     
-    # Fit coefficients for each channel
+    # Adjust subsample_factor if needed to ensure we have at least min_samples
+    effective_subsample_factor = subsample_factor
+    n_subsampled = (n_timepoints - k) // effective_subsample_factor
+    if n_subsampled < min_samples:
+        # Adjust subsample_factor to meet min_samples requirement
+        effective_subsample_factor = max(1, (n_timepoints - k) // min_samples)
+    
+    # Fit LPC model for each channel separately
     coefficients = np.zeros((n_channels, k), dtype=np.float32)
     
     for ch in range(n_channels):
-        coefficients[ch, :] = _fit_lpc_model_channel(data[:, ch], k, subsample_factor, min_samples)
+        # Create design matrix using numba-optimized function
+        # This subsamples the target points but uses full history for predictors
+        X_design, y_target = _create_design_matrix_channel(data[:, ch], k, effective_subsample_factor)
+        
+        # Use faster solve via normal equations: (X^T X) coeffs = X^T y
+        # This is faster than lstsq for overdetermined systems
+        XtX = X_design.T @ X_design
+        Xty = X_design.T @ y_target
+        coefficients[ch] = np.linalg.solve(XtX, Xty).astype(np.float32)
     
     return coefficients, initial_points
 
