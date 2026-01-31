@@ -88,7 +88,7 @@ for bps in [2.25, 3, 4, 5, 6]:
     def decode_lossy(x: bytes, dtype: str, shape: tuple) -> np.ndarray:
         return wavpack_decode(x, dtype, shape)
     algorithm_dicts.append({
-        "name": f"wavpack-lossy-{bps}",
+        "name": f"wavpack-lossy-bps{bps}",
         "version": "3",
         "encode": encode_lossy,
         "decode": decode_lossy,
