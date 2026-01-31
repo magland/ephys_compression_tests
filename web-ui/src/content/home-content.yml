@@ -1,0 +1,48 @@
+title: Welcome to Ephys Compression Tests
+description:
+  Ephys Compression Tests is an open-source project for comparing compression algorithms
+  on electrophysiology data.
+
+sections:
+  algorithms:
+    title: Algorithms
+    description:
+      Explore the supported compression algorithms, including traditional methods
+      like zlib and modern approaches like ANS.
+    link: /algorithms
+    linkText: View Algorithms
+
+  datasets:
+    title: Datasets
+    description:
+      Explore the curated collection of ephys datasets.
+      See the performance of the various compression algorithms on each dataset.
+    link: /datasets
+    linkText: View Datasets
+
+  monitor:
+    title: Live Monitor
+    description:
+      The benchmarking runs automatically in a GitHub Actions workflow. Track
+      current progress, view completed benchmarks, and monitor performance
+      metrics as they are generated.
+    link: /monitor
+    linkText: View Monitor
+
+  source:
+    title: Source Code
+    description:
+      Explore the GitHub repository to view the source code, contribute to the
+      project, or run your own benchmarks locally.
+    link: https://github.com/magland/ephys_compression_tests
+    linkText: View on GitHub
+    external: true
+
+  submit:
+    title: Submit an Algorithm or Dataset
+    description:
+      Want to contribute? Learn how to add your own compression algorithm
+      or ephys dataset to the benchmark suite. Follow the step-by-step
+      guide for preparing and submitting your contribution.
+    link: /submit
+    linkText: Submission Guide

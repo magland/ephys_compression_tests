@@ -1,0 +1,178 @@
+.content-container {
+  margin-bottom: 1.5rem;
+}
+
+.content-header {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.description-toggle {
+  color: #0066cc;
+  text-decoration: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.description-toggle:hover {
+  text-decoration: underline;
+}
+
+.long-description {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+}
+
+/* Markdown styles */
+.long-description h1,
+.long-description h2,
+.long-description h3,
+.long-description h4,
+.long-description h5,
+.long-description h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.long-description h1 { font-size: 1.5em; }
+.long-description h2 { font-size: 1.3em; }
+.long-description h3 { font-size: 1.1em; }
+
+.long-description p {
+  margin-bottom: 1em;
+}
+
+.long-description ul,
+.long-description ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.long-description li {
+  margin: 0.5em 0;
+}
+
+.long-description code {
+  background-color: #eee;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.long-description pre {
+  background-color: #eee;
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.long-description pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.long-description blockquote {
+  border-left: 4px solid #ddd;
+  margin: 1em 0;
+  padding-left: 1em;
+  color: #666;
+}
+
+.long-description a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.long-description a:hover {
+  text-decoration: underline;
+}
+
+.long-description img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+}
+
+.long-description table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.long-description th,
+.long-description td {
+  border: 1px solid #ddd;
+  padding: 0.5em;
+  text-align: left;
+}
+
+.long-description th {
+  background-color: #f0f0f0;
+}
+
+.metadata-section {
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.metadata-label {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.metadata-value {
+  font-size: 0.9rem;
+}
+
+.tag {
+  color: #0066cc;
+  text-decoration: none;
+  padding: 2px 6px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.source-link {
+  color: #0066cc;
+  text-decoration: none;
+  padding: 2px 6px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.benchmark-section {
+  margin-bottom: 1.5rem;
+}
+
+.benchmark-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.download-link {
+  color: #0066cc;
+  text-decoration: none;
+  padding: 2px 6px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}

@@ -1,0 +1,69 @@
+name: Run Benchmarks
+
+# Add concurrency to cancel in-progress jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches: [ main ]  # Run on main branch pushes
+    paths:
+      - 'python/**'  # Run only if benchmarks are updated
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install package and dependencies
+        run: |
+          cd python
+          pip install -e .
+
+      - name: Run benchmarks
+        env:
+          MEMOBIN_API_KEY: ${{ secrets.MEMOBIN_API_KEY }}
+          UPLOAD_TO_MEMOBIN: '1'
+        run: |
+          python scripts/run_benchmarks.py
+
+      - name: Upload benchmark results as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            python/benchmark_results/results.json
+
+      - name: Configure Git
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Create fresh results branch
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          git checkout --orphan benchmark-results
+
+      - name: Commit benchmark results
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # need to force add because it's in the .gitignore
+          git add -f benchmark_results/
+          git commit -m "Update benchmark results from $(date +'%Y-%m-%d %H:%M:%S') [skip ci]"
+          git push -f https://${GITHUB_TOKEN}@github.com/${{ github.repository }} benchmark-results
