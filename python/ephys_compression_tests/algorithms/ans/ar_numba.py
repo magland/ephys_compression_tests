@@ -70,7 +70,7 @@ def _fit_ar_model_channel(channel_data: np.ndarray, k: int, subsample_factor: in
     return coefficients
 
 
-def fit_ar_model(data: np.ndarray, k: int, subsample_factor: int = 100,
+def fit_ar_model(data: np.ndarray, k: int, subsample_factor: int = 1,
                 min_samples: int = 1000) -> tuple[np.ndarray, np.ndarray]:
     """
     Fit an autoregressive model of order k to multi-channel time series data.
@@ -78,7 +78,7 @@ def fit_ar_model(data: np.ndarray, k: int, subsample_factor: int = 100,
     Args:
         data: 2D array of shape (timepoints, channels) with dtype int16
         k: Order of the autoregressive model
-        subsample_factor: Use every Nth sample for fitting (default: 100)
+        subsample_factor: Use every Nth sample for fitting (default: 1)
         min_samples: Minimum number of samples to use for fitting (default: 1000)
     
     Returns:
