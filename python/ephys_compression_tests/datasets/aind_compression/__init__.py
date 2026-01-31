@@ -123,5 +123,32 @@ for d in dataset_dicts_base:
         }
     )
 
+# Add common-mode corrected versions
+# Oddly enough, this didn't seem to help compression much, so leave it commented out for now
+# for d in dataset_dicts_base:
+#     if "multi-channel" in d["tags"]:
+#         def create1(d=d) -> np.ndarray:
+#             data = d["create"]()
+#             median_signal = np.median(data, axis=1)
+#             # now create a new array where the first channel is the median
+#             # and the rest are the original channels minus the median
+#             # but we exclude the last channel because it can be recovered
+#             new_data = np.zeros_like(data)
+#             new_data[:, 0] = median_signal
+#             for ch in range(1, data.shape[1]):
+#                 new_data[:, ch] = data[:, ch] - median_signal
+#             return new_data
+#         dataset_dicts.append(
+#             {
+#                 "name": f'{d["name"]}-cmc',
+#                 "version": "1",
+#                 "description": f'{d["description"]} (common-mode corrected)',
+#                 "create": create1,
+#                 "tags": d["tags"] + ["common-mode-corrected"],
+#                 "source_file": SOURCE_FILE,
+#                 "long_description": LONG_DESCRIPTION,
+#             }
+#         )
+
 
 datasets = [Dataset(**a) for a in dataset_dicts]

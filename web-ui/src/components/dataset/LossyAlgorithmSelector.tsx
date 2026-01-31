@@ -78,7 +78,8 @@ export const LossyAlgorithmSelector = ({
         {lossyResults.map((result) => (
           <option key={result.algorithm} value={result.algorithm}>
             {result.algorithm} (RMSE: {result.rmse?.toFixed(3)}, Max Error:{" "}
-            {result.max_error?.toFixed(3)})
+            {result.max_error?.toFixed(3)}, Ratio:{" "}
+            {result.compression_ratio?.toFixed(2)})
           </option>
         ))}
       </select>
