@@ -22,6 +22,36 @@ LONG_DESCRIPTION = _load_long_description()
 tags = ["real", "ecephys", "timeseries", "integer", "correlated"]
 
 
+# It's important to correct the quantization levels before using these datasets
+# Wavpack in particular will do a lot worse if the data is not properly quantized
+def correct_quantization_for_channel(data: np.ndarray) -> np.ndarray:
+    closed_to_zero_val = np.argmin(np.abs(data))
+    print(f'Value closest to zero: {data[closed_to_zero_val]} at index {closed_to_zero_val}')
+    data = data - data[closed_to_zero_val]
+    unique_vals = np.unique(data)
+    # differences between unique values
+    diffs = np.diff(unique_vals)
+    # minimum diff is the quantization step size
+    diff0 = np.min(diffs[diffs > 0])
+    print(f'Identified quantization step size: {diff0}')
+    # divide by quantization step size
+    data = data / diff0
+    data = data.astype(np.int16)
+    return data
+
+def correct_quantization(data: np.ndarray) -> np.ndarray:
+    if data.ndim == 1:
+        return correct_quantization_for_channel(data)
+    elif data.ndim == 2:
+        corrected_channels = []
+        for ch in range(data.shape[1]):
+            print(f'Correcting quantization for channel {ch}...')
+            corrected_ch = correct_quantization_for_channel(data[:, ch])
+            corrected_channels.append(corrected_ch)
+        return np.stack(corrected_channels, axis=1)
+    else:
+        raise ValueError(f'Unsupported data ndim: {data.ndim}')
+
 def load_aind_np2_probeB_ch101() -> np.ndarray:
     """Load AIND CH101 dataset from external URL.
 
@@ -33,6 +63,7 @@ def load_aind_np2_probeB_ch101() -> np.ndarray:
     response = requests.get(url)
     response.raise_for_status()
     data = np.load(io.BytesIO(response.content)).flatten()
+    data = correct_quantization(data)
     return data
 
 def load_aind_np2_probeB_ch101_110() -> np.ndarray:
@@ -41,6 +72,7 @@ def load_aind_np2_probeB_ch101_110() -> np.ndarray:
     response = requests.get(url)
     response.raise_for_status()
     data = np.load(io.BytesIO(response.content))
+    data = correct_quantization(data)
     return data
 
 def load_aind_np1_probeA_101_110() -> np.ndarray:
@@ -49,6 +81,7 @@ def load_aind_np1_probeA_101_110() -> np.ndarray:
     response = requests.get(url)
     response.raise_for_status()
     data = np.load(io.BytesIO(response.content))
+    data = correct_quantization(data)
     return data
 
 # ibl-np1-probe00
@@ -58,12 +91,13 @@ def load_ibl_np1_probe00_101_110() -> np.ndarray:
     response = requests.get(url)
     response.raise_for_status()
     data = np.load(io.BytesIO(response.content))
+    data = correct_quantization(data)
     return data
 
 dataset_dicts_base = [
     {
         "name": "aind-compression-np2-ProbeB-ch101",
-        "version": "1",
+        "version": "2",
         "description": "AIND CH101 dataset",
         "create": load_aind_np2_probeB_ch101,
         "tags": tags + ["single-channel"],
@@ -72,7 +106,7 @@ dataset_dicts_base = [
     },
     {
         "name": "aind-compression-np2-ProbeB-ch101-110",
-        "version": "1",
+        "version": "2",
         "description": "AIND CH101-110 dataset",
         "create": load_aind_np2_probeB_ch101_110,
         "tags": tags + ["multi-channel"],
@@ -81,7 +115,7 @@ dataset_dicts_base = [
     },
     {
         "name": "aind-compression-np1-ProbeA-ch101-110",
-        "version": "1",
+        "version": "2",
         "description": "AIND NP1 ProbeA CH101-110 dataset",
         "create": load_aind_np1_probeA_101_110,
         "tags": tags + ["multi-channel"],
@@ -90,7 +124,7 @@ dataset_dicts_base = [
     },
     {
         "name": "ibl-compression-np1-Probe00-ch101-110",
-        "version": "1",
+        "version": "2",
         "description": "IBL NP1 Probe00 CH101-110 dataset",
         "create": load_ibl_np1_probe00_101_110,
         "tags": tags + ["multi-channel"],
@@ -114,7 +148,7 @@ for d in dataset_dicts_base:
     dataset_dicts.append(
         {
             "name": f'{d["name"]}-filtered',
-            "version": "1",
+            "version": "2",
             "description": f'{d["description"]} (bandpass filtered 300-4000 Hz)',
             "create": create0,
             "tags": d["tags"] + ["filtered", "bandpass"],
