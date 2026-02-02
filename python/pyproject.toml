@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ephys_compression_tests"
+version = "0.1.0"
+description = "Benchmarking compression methods for electrophysiology data"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "Jeremy Magland" }
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "zstandard",
+    "simple_ans",
+    "requests",
+    "lindi",
+    "brotli",
+    "click",
+    "numba",
+    "segyio",
+    "lz4",
+    "pyedflib",
+    "nibabel",
+    "blosc2",
+    "wavpack-numcodecs"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ephys_compression_tests*"]
+
+[project.scripts]
+ephys_compression_tests = "ephys_compression_tests.cli:main"

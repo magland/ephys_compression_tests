@@ -1,0 +1,35 @@
+/* Existing styles */
+
+/* Markdown content styles */
+.markdown-content {
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+.markdown-content h1 {
+  font-size: 2.2rem;
+  margin-bottom: 1.5rem;
+  color: #1a1a1a;
+}
+
+.markdown-content h2 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  color: #1a1a1a;
+}
+
+.markdown-content p {
+  margin-bottom: 1.2rem;
+  font-size: 1.1rem;
+}
+
+.markdown-content ul {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.markdown-content li {
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+}
